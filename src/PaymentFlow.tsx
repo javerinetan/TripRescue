@@ -75,7 +75,9 @@ export default function PaymentFlow({ planId }: { planId: string }) {
     return () => clearInterval(timer);
   }, [busy]);
 
-  async function runLoop(targetOfferId: string) {
+  // overrideOfferId exists only to force an off-mandate supplier for the
+  // safeguard demo. Normally the agent buys whatever it decided.
+  async function runLoop(overrideOfferId?: string) {
     setSteps(STEPS.map((s) => ({ ...s, state: "idle" })));
     setPreview(null);
     setReceipt(null);
@@ -93,8 +95,12 @@ export default function PaymentFlow({ planId }: { planId: string }) {
       log("info", `Discovered ${discovered.length} suppliers the agent was not provisioned with.`);
       ranked.decision.reasons.forEach((reason) => log("decision", reason));
 
+      const targetOfferId = overrideOfferId ?? ranked.decision.selectedOfferId;
       const offer = discovered.find((o) => o.id === targetOfferId);
-      if (!offer) throw new Error("Offer disappeared from the registry.");
+      if (!offer) throw new Error("The agent could not find an offer it is allowed to buy.");
+      if (overrideOfferId) {
+        log("refusal", `Forcing ${offer.supplierId}, which the agent did not select.`);
+      }
 
       setStep("challenge", "running");
       const challenged = await challengeResource(offer);
@@ -193,7 +199,7 @@ export default function PaymentFlow({ planId }: { planId: string }) {
         <div className="panel-row">
           <span className="panel-title">Execution</span>
           <div className="actions">
-            <button disabled={busy} onClick={() => runLoop("offer-protected-transfer-001")}>
+            <button disabled={busy} onClick={() => runLoop()}>
               {busy ? "Working…" : "Execute recovery"}
             </button>
             <button className="ghost" disabled={busy} onClick={() => runLoop("offer-flex-transfer-002")}>

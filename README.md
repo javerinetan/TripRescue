@@ -42,6 +42,19 @@ A confirmed flight cancellation disrupts a five-provider Tokyo itinerary:
 | Rental car pickup | Hakone Drive | 🟠 at risk — pickup before arrival |
 | Mount Fuji activity | Fuji Day Tours | 🔴 broken — prerequisites unmet |
 
+**The traveller first says what matters on this trip.** That is the only
+preference input, and it changes everything downstream:
+
+| Priority | Budget | Recommended strategy | Agent buys | Why |
+| --- | --- | --- | --- | --- |
+| Leisure | S$300 | Most reliable | Protected transfer, S$48 | cheapest the mandate allows |
+| Business | S$600 | Fastest | Express rail, **S$61** | arrives earliest |
+| Family | S$450 | Most reliable | Protected transfer, S$48 | lowest risk |
+
+Same cancellation, three different agent decisions, three different suppliers
+paid. The priority sets the budget, the supplier allow-list and the ranking; it
+can never relax a safety check.
+
 The agent then:
 
 1. Traverses the **trip dependency graph** and classifies every booking.
@@ -204,13 +217,16 @@ curl -X POST localhost:8787/api/demo/fault -H 'content-type: application/json'  
 
 ## XRPL Testnet transactions
 
-All validated on Testnet, `tesSUCCESS`, 48000 drops, SourceTag `20260530`:
+All validated on Testnet, `tesSUCCESS`, SourceTag `20260530`. The amount follows
+the supplier the agent chose, so the business-priority run settles a different
+sum to a different payee:
 
 | Ledger | Transaction |
 | --- | --- |
 | 20482189 | [`6BA53E5B…31D5`](https://testnet.xrpl.org/transactions/6BA53E5B56A41CECFA1D1960821079669C2AB7CC5ED4AB1E53157677F3B331D5) |
 | 20482307 | [`7D2A9565…0A53`](https://testnet.xrpl.org/transactions/7D2A95654DE41ACBE249BAB9EAF8EE09BD30D76F4AEB126BE5F6FC28416E0A53) |
 | 20482546 | [`F91CE25D…3971`](https://testnet.xrpl.org/transactions/F91CE25D2B4144935D00D1B3B554C1FA4861AA6A4054242217ABA234A1B33971) |
+| 20483474 | [`D399B05B…5D88`](https://testnet.xrpl.org/transactions/D399B05B1F13C5F3555B28822566B72D92F5A24672B4F65B68F90ACEFD275D88) — business priority, **61000 drops** to a different supplier |
 
 Agent wallet `rMmDQfbKv6GTr7KZZ4cSWKV9r5sv1Kyksm` → supplier wallet
 `rnkMaVghfEbsgWx8GXidh5c1PJ4V9Mvn2y`.

@@ -517,3 +517,54 @@ button.ghost:hover:not(:disabled) { color: var(--ink); border-color: var(--ink-f
 }
 
 .fault-hint { font: 11px/1.4 var(--mono); color: var(--ink-faint); }
+
+/* Traveller priority -------------------------------------------------- */
+
+.priorities {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.priority {
+  background: var(--bg);
+  border: 1px solid var(--human-line);
+  border-radius: 10px;
+  padding: 14px;
+  text-align: left;
+  display: grid;
+  gap: 5px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.priority:hover:not(:disabled) { border-color: var(--ink-faint); filter: none; }
+.priority.on { border-color: var(--accent); background: rgba(108, 140, 255, 0.07); }
+.priority:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.priority-label { font: 600 14px/1.2 var(--sans); color: var(--ink); }
+.priority-summary { font: 12px/1.45 var(--sans); color: var(--ink-dim); font-weight: 400; }
+.priority-rank {
+  font: 10px/1.4 var(--mono);
+  color: var(--ink-faint);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 400;
+}
+
+.budget-input {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding-top: 16px;
+  border-top: 1px solid var(--human-line);
+}
+.budget-input .label { flex: none; }
+.budget-input input[type="range"] { flex: 1; min-width: 160px; accent-color: var(--accent); }
+.budget-input output {
+  font: 600 17px/1 var(--sans);
+  font-variant-numeric: tabular-nums;
+  min-width: 88px;
+  text-align: right;
+}

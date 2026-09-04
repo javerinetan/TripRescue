@@ -30,6 +30,7 @@ import {
   evaluatePurchase,
   formatSgd,
   getMandate,
+  configureMandate,
   recordSpend,
   releaseSpend,
   remainingBudget,
@@ -52,6 +53,7 @@ import { publicWallets, signPaymentIntent, submitSignedBlob, verifySettlement } 
 import { analyzeCancellation, demoItinerary, generateRecoveryPlans } from "./recovery.js";
 import { FAULT_MODES, clearFault, currentFault, setFault, shouldFail } from "./faults.js";
 import { NoCompliantOfferError, decideSupplierOffer } from "./agent.js";
+import { DEFAULT_PRIORITY, getPriority, listPriorities, rankerFor } from "./priorities.js";
 
 const CONTRACT_VERSION = "1.0.0";
 const DEMO_RECOVERY_ID = "recovery-tokyo-001";
@@ -103,6 +105,32 @@ export function createRouter() {
     });
   });
 
+  // --- Traveller priorities -------------------------------------------------
+
+  router.get("/priorities", (_req, res) => {
+    res.json({ contractVersion: CONTRACT_VERSION, priorities: listPriorities(), default: DEFAULT_PRIORITY });
+  });
+
+  // Authorising a strategy writes the mandate. Priority sets the defaults; the
+  // traveller may tighten or loosen the budget before authorising.
+  router.post("/mandates/configure", (req, res) => {
+    const priority = req.body?.priority ?? DEFAULT_PRIORITY;
+    const overrides = {};
+    const budget = req.body?.maximumAdditionalSpend?.minorUnits;
+    if (Number.isInteger(budget) && budget > 0) {
+      overrides.maximumAdditionalSpend = { currency: "SGD", minorUnits: budget };
+    }
+    if (typeof req.body?.arrivalDeadline === "string" && Number.isFinite(Date.parse(req.body.arrivalDeadline))) {
+      overrides.arrivalDeadline = req.body.arrivalDeadline;
+    }
+    const mandate = configureMandate({ priority, ...overrides });
+    res.json({
+      contractVersion: CONTRACT_VERSION,
+      mandate,
+      remaining: { currency: "SGD", minorUnits: remainingBudget(mandate.id) },
+    });
+  });
+
   // --- Recovery domain (Min Xie's engine, exposed over HTTP) ----------------
 
   router.post("/recovery/analyze", (req, res) => {
@@ -129,9 +157,11 @@ export function createRouter() {
 
     const plans = generateRecoveryPlans(mandate);
     const compliant = plans.filter((plan) => plan.mandateCompliant);
-    // Recommend the lowest-risk compliant plan; fall back to the first plan so
-    // the UI can still explain why nothing is authorized.
-    const recommended = compliant.slice().sort((a, b) => a.riskScore - b.riskScore)[0] ?? null;
+    // Recommend the compliant plan that matches the traveller's priority, and
+    // fall back to the lowest-risk compliant plan when that kind is not viable.
+    const priority = getPriority(mandate.priority ?? DEFAULT_PRIORITY);
+    const preferred = compliant.find((plan) => plan.kind === priority.preferredPlanKind);
+    const recommended = preferred ?? compliant.slice().sort((a, b) => a.riskScore - b.riskScore)[0] ?? null;
 
     res.json({
       contractVersion: CONTRACT_VERSION,
@@ -155,17 +185,13 @@ export function createRouter() {
 
     const offers = listOffers();
     try {
-      const decision = await decideSupplierOffer({ offers, plan, mandate });
+      const ranker = rankerFor(mandate.priority ?? DEFAULT_PRIORITY);
+      const decision = await decideSupplierOffer({ offers, plan, mandate, ranker });
 
-      // V1 ships no AI ranker, so agent.js always takes its deterministic path.
-      // Its fallback wording reports that as a ranker failure, which reads as a
-      // fault rather than the intended design. State the intent instead.
       const refused = offers.length - 1;
-      decision.reasons = [
-        "No AI ranker is configured in V1, so the deterministic policy selected the safest compliant offer.",
-        ...decision.reasons.filter((reason) => !reason.startsWith("Selected by the safe deterministic fallback")),
+      decision.reasons.push(
         `${refused} of ${offers.length} discovered offers were refused by the mandate.`,
-      ];
+      );
       res.json({
         contractVersion: CONTRACT_VERSION,
         offers: offers.map((offer) => ({ ...offer, expiresAt: null })),
