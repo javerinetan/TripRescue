@@ -45,15 +45,56 @@ Strategic human control, tactical agent autonomy.
 
 ## Status
 
-Early. The XRPL payment layer works and is carried over from an earlier
-prototype; the travel domain logic is not built yet.
+The deterministic recovery engine and complete XRPL Testnet commercial loop are
+working. The remaining product work is to connect the recovery/cascade views and
+safe agent selector to the existing payment journey, then complete the live
+model integration and submission materials.
 
 | Component | State |
 | --- | --- |
 | XRPL payment engine (`server/xrpl.js`) | ✅ prepare / sign / submit / verify, Testnet |
 | Wallet setup (`scripts/setup-wallets.js`) | ✅ generates and funds Testnet wallets |
-| API + web scaffold | ✅ boots, health check only |
-| Trip graph, cascade, strategies, mandate | ⬜ not started |
+| Trip graph and cascade analysis (`server/recovery.js`) | ✅ dependency-aware fixed demo |
+| Recovery strategies and Rescue Mandate | ✅ deterministic policy checks |
+| Safe agent offer selection (`server/agent.js`) | ✅ injectable ranker with fail-safe fallback |
+| x402 supplier and gated delivery | ✅ HTTP 402 → settlement → verified delivery |
+| Payment journey UI | ✅ discovery, mandate, transaction and receipt flow |
+| Full recovery UI and live model ranker | 🚧 integration remaining |
+
+## Verified XRPL Testnet transaction
+
+The complete demo was executed successfully on 5 September 2026:
+
+- HTTP `402 Payment Required` with `PAYMENT-REQUIRED` challenge.
+- Agent mandate check and signed XRPL payment intent.
+- **0.048 XRP** settled to the simulated supplier.
+- Supplier verified settlement before releasing reservation hold `TR-HOLD-001`.
+- Replaying the same idempotency key returned the original transaction rather
+  than paying twice.
+- A supplier outside the mandate allow-list was rejected with HTTP `403`.
+
+Transaction:
+[8023CA6299565EA545843AF58568E19C1AE4AE3A57D9EAEC8862618966EF800B](https://testnet.xrpl.org/transactions/8023CA6299565EA545843AF58568E19C1AE4AE3A57D9EAEC8862618966EF800B)
+
+## Architecture
+
+```text
+Cancelled flight + trip dependency graph
+  -> deterministic cascade analysis
+  -> three whole-trip recovery strategies
+  -> user-authorized Rescue Mandate
+  -> deterministic offer-policy filter
+  -> AI ranker sees compliant offers only
+  -> supplier returns HTTP 402 challenge
+  -> XRPL Testnet settlement
+  -> supplier verifies receipt
+  -> reservation hold and audit receipt delivered
+```
+
+Money, deadlines, dependencies, action ordering, supplier permissions and
+payment verification are deterministic. AI ranking cannot bypass those checks;
+invalid or unavailable model output falls back to the lowest-risk compliant
+offer.
 
 ## Setup
 
@@ -72,6 +113,12 @@ Verify the API and wallets:
 curl http://localhost:8787/api/health
 ```
 
+Run the complete command-line commercial loop after the API is running:
+
+```bash
+npm run demo:x402
+```
+
 `npm run check` runs the typecheck and unit tests.
 
 > `.env` holds XRPL Testnet seeds and is gitignored. Never commit it, and never
@@ -80,13 +127,17 @@ curl http://localhost:8787/api/health
 ## Repo layout
 
 ```
-server/xrpl.js        XRPL payment engine (Testnet)
-server/index.js       Express API
-src/                  React + Vite front end
-scripts/              wallet setup
-skills/               xrpl-agentic-resources agent skill
-hook/                 XRPL builder-feedback hook (see below)
-BUILDER_FEEDBACK.md   XRPL developer feedback collected during the build
+server/recovery.js      Trip graph, cascade, strategies and mandate policy
+server/agent.js         Safe offer filtering and injectable AI ranker boundary
+server/routes.js        Supplier, x402 and payment API routes
+server/x402.js          XRPL x402 wire-format translation
+server/xrpl.js          XRPL payment signing, settlement and verification
+src/PaymentFlow.tsx     Visible agentic commercial-loop interface
+scripts/demo-x402.js    Reproducible end-to-end command-line demo
+scripts/setup-wallets.js Testnet wallet generation and faucet setup
+skills/                 XRPL agentic-resources skill
+hook/                   XRPL builder-feedback hook
+BUILDER_FEEDBACK.md     XRPL developer feedback collected during the build
 ```
 
 ## Builder feedback hook
