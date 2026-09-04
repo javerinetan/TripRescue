@@ -21,3 +21,28 @@
 - Provide a standard x402 receipt schema binding the requested resource, exact transaction, provider response digest, and refund policy.
 - Offer an official local facilitator sandbox with deterministic Testnet fixtures so teams can demo during faucet or external-service instability.
 
+## Additional friction found building the x402 flow
+
+- Browser clients cannot read the x402 response headers cross-origin. `PAYMENT-REQUIRED`
+  and `PAYMENT-RESPONSE` are custom headers, so a browser-based agent sees them as
+  absent unless the merchant sets `Access-Control-Expose-Headers`. Our client silently
+  fell back to the JSON body and sent an empty `accepted` block in `PAYMENT-SIGNATURE`
+  for some time before we noticed, because nothing errors. The XRPL x402 merchant
+  guides show Express and FastAPI servers but do not mention CORS exposure, and a
+  one-line note plus `cors({ exposedHeaders: [...] })` in the Express sample would
+  save every browser-side integrator this bug.
+- `client.autofill` sets a short `LastLedgerSequence`. That is right for machine-speed
+  submission, but any flow with a human authorisation step between signing and
+  submission can exceed it and fail with `tefMAX_LEDGER`. Guidance on choosing a
+  validity window for human-in-the-loop agent flows, and a documented way to widen it
+  without hand-editing the autofilled transaction, would help.
+- The requested amount of a native XRP Payment is reported as `Amount` by rippled API
+  v1 and `DeliverMax` by API v2. Verification code that reads only `Amount` silently
+  fails against a v2 node. This is documented in the API changes page but is easy to
+  miss when writing receipt verification, which is exactly where it matters. A note on
+  the payment-verification tutorials would be well placed.
+- CAIP-2 network identifiers and human network names coexist without a mapping. x402
+  uses `xrpl:0` / `xrpl:1` / `xrpl:2`, while xrpl.js, faucets and explorers speak
+  `mainnet` / `testnet` / `devnet` and WebSocket URLs. We shipped a bug where the domain
+  layer said `xrpl-testnet` and the payment layer said `xrpl:1`. A single canonical
+  mapping table would prevent it.

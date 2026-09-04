@@ -20,7 +20,8 @@ import {
   formatSgd,
   preparePayment,
 } from "./api";
-import type { OfferDecision, WireExchange } from "./api";
+import { FAULT_MODES, setFault } from "./api";
+import type { FaultMode, OfferDecision, WireExchange } from "./api";
 import WireInspector from "./WireInspector";
 import type { ExecutionReceipt, JourneyStep, RescueMandate, SupplierOffer, TransactionPreview } from "./types";
 
@@ -46,6 +47,7 @@ export default function PaymentFlow({ planId }: { planId: string }) {
   const [logs, setLogs] = useState<Log[]>([]);
   const [busy, setBusy] = useState(false);
   const [elapsed, setElapsed] = useState(0);
+  const [fault, setFaultMode] = useState<FaultMode>("none");
   const startedAt = useRef<number | null>(null);
 
   const log = (kind: Log["kind"], text: string) =>
@@ -199,6 +201,30 @@ export default function PaymentFlow({ planId }: { planId: string }) {
             </button>
           </div>
         </div>
+
+        <label className="fault">
+          <span className="fault-label">Inject fault</span>
+          <select
+            value={fault}
+            disabled={busy}
+            onChange={async (event) => {
+              const next = event.target.value as FaultMode;
+              setFaultMode(next);
+              await setFault(next).catch(() => undefined);
+              const fresh = await fetchMandate().catch(() => null);
+              if (fresh) setRemaining(fresh.remaining.minorUnits);
+            }}
+          >
+            {FAULT_MODES.map((mode) => (
+              <option key={mode.id} value={mode.id}>{mode.label}</option>
+            ))}
+          </select>
+          <span className="fault-hint">
+            {fault === "none"
+              ? "Break it on purpose and watch the safeguards hold."
+              : "Money must not move, and nothing may be delivered."}
+          </span>
+        </label>
 
         <ol className="steps">
           {steps.map((step) => (

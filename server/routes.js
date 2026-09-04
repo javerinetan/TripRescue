@@ -50,9 +50,26 @@ import {
 } from "./executions.js";
 import { publicWallets, signPaymentIntent, submitSignedBlob, verifySettlement } from "./xrpl.js";
 import { analyzeCancellation, demoItinerary, generateRecoveryPlans } from "./recovery.js";
+import { FAULT_MODES, clearFault, currentFault, setFault, shouldFail } from "./faults.js";
 
 const CONTRACT_VERSION = "1.0.0";
 const DEMO_RECOVERY_ID = "recovery-tokyo-001";
+
+/**
+ * Compares the client's echoed `accepted` block against the requirement this
+ * supplier issued. Returns a reason string on mismatch, or null when it agrees.
+ */
+function acceptedMismatch(accepted, requirement) {
+  if (!accepted || typeof accepted !== "object") return "PAYMENT-SIGNATURE did not echo an accepted requirement.";
+  const checks = [
+    [accepted.network === requirement.network, "network"],
+    [String(accepted.amount) === String(requirement.amountDrops), "amount"],
+    [accepted.payTo === requirement.destination, "destination"],
+    [accepted.extra?.invoiceId === requirement.memo, "invoiceId"],
+  ];
+  const failed = checks.find(([ok]) => !ok);
+  return failed ? `The accepted requirement disagrees on ${failed[1]}.` : null;
+}
 
 function fail(res, status, code, message, extra = {}) {
   return res.status(status).json({
@@ -159,11 +176,34 @@ export function createRouter() {
     });
   });
 
+  // --- Deliberate fault injection (demo only) -------------------------------
+  router.post("/demo/fault", (req, res) => {
+    const result = setFault(req.body?.mode ?? FAULT_MODES.NONE);
+    if (!result.ok) {
+      return fail(res, 400, "invalid-request", `Unknown fault mode. Allowed: ${result.allowed.join(", ")}.`);
+    }
+    if (result.mode === FAULT_MODES.BUDGET_EXHAUSTED) {
+      // Spend the mandate down so the next purchase must be refused.
+      const left = remainingBudget(DEMO_MANDATE.id) ?? 0;
+      recordSpend(DEMO_MANDATE.id, Math.max(0, left - 100));
+    }
+    res.json({
+      contractVersion: CONTRACT_VERSION,
+      mode: result.mode,
+      remaining: { currency: "SGD", minorUnits: remainingBudget(DEMO_MANDATE.id) },
+    });
+  });
+
+  router.get("/demo/fault", (_req, res) => {
+    res.json({ contractVersion: CONTRACT_VERSION, mode: currentFault(), modes: Object.values(FAULT_MODES) });
+  });
+
   // Restores mandate budget and clears executions so the demo can be re-run.
   // Settled XRPL transactions are of course untouched; only local state resets.
   router.post("/demo/reset", (_req, res) => {
     resetMandates();
     resetExecutions();
+    clearFault();
     res.json({ contractVersion: CONTRACT_VERSION, reset: true, mandate: DEMO_MANDATE });
   });
 
@@ -182,6 +222,10 @@ export function createRouter() {
     const { supplierId, offerId } = req.params;
     const offer = getOfferForSupplier(supplierId, offerId);
     if (!offer) return fail(res, 404, "not-found", `Offer ${offerId} is unknown for ${supplierId}.`);
+
+    if (shouldFail(FAULT_MODES.SUPPLIER_UNAVAILABLE)) {
+      return fail(res, 503, "supplier-unavailable", `${supplierId} is not responding. No payment was attempted.`);
+    }
 
     const recoveryId = String(req.query.recoveryId || DEMO_RECOVERY_ID);
     const wallets = publicWallets();
@@ -241,6 +285,12 @@ export function createRouter() {
     }
 
     const requirement = getRequirement(execution.requirementId);
+
+    // The client echoes back the requirement it claims to have accepted. It must
+    // match what this supplier actually issued, or the proof is for something else.
+    const mismatch = acceptedMismatch(parsed.accepted, requirement);
+    if (mismatch) return fail(res, 422, "payment-mismatch", mismatch);
+
     const verified = await verifySettlement(execution.transactionHash, {
       amountDrops: requirement.amountDrops,
       destination: requirement.destination,
@@ -366,6 +416,9 @@ export function createRouter() {
 
     let settled;
     try {
+      if (shouldFail(FAULT_MODES.SETTLEMENT_FAIL)) {
+        throw new Error("XRPL settlement returned tecUNFUNDED_PAYMENT (injected fault).");
+      }
       settled = await submitSignedBlob(execution.signedTxBlob, {
         executionId: execution.executionId,
         offerId: offer.id,

@@ -183,6 +183,25 @@ Release-blocking invariants, each covered by tests:
 Budget is reserved *before* submission and released if settlement fails, so a
 concurrent execution cannot double-spend the mandate.
 
+## Failure handling, demonstrated
+
+Safeguards that cannot be broken on demand are just assertions. The UI has a
+fault injector, so the failure paths can be shown live:
+
+| Injected fault | What happens | Budget |
+| --- | --- | --- |
+| Supplier offline | `503` at the challenge, before any payment is attempted | untouched |
+| Settlement rejected | `502`, execution marked failed, nothing delivered | **released** |
+| Budget exhausted | `403 mandate-violation` at prepare, agent halts | no payment |
+
+Budget is reserved before submission and released if settlement fails, so a
+failed payment strands neither money nor authorisation. The same modes are
+available over the API:
+
+```bash
+curl -X POST localhost:8787/api/demo/fault -H 'content-type: application/json'   -d '{"mode":"settlement-fail"}'
+```
+
 ## XRPL Testnet transactions
 
 All validated on Testnet, `tesSUCCESS`, 48000 drops, SourceTag `20260530`:

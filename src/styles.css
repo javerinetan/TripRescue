@@ -486,3 +486,34 @@ button.ghost:hover:not(:disabled) { color: var(--ink); border-color: var(--ink-f
 /* Intact trip, before any disruption. */
 .node.intact::after { background: var(--ink-faint); }
 .node.intact::before { background: var(--agent-line); }
+
+/* Fault injection ----------------------------------------------------- */
+
+.fault {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 4px 0 14px;
+  padding: 10px 12px;
+  border: 1px dashed var(--agent-line);
+  border-radius: 8px;
+}
+
+.fault-label {
+  font: 600 10px/1 var(--mono);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--ink-faint);
+}
+
+.fault select {
+  background: var(--bg);
+  color: var(--ink);
+  border: 1px solid var(--agent-line);
+  border-radius: 6px;
+  padding: 5px 8px;
+  font: 11px/1.4 var(--mono);
+}
+
+.fault-hint { font: 11px/1.4 var(--mono); color: var(--ink-faint); }
