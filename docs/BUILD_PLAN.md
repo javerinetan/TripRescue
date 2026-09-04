@@ -187,9 +187,9 @@ requests as each gate passes.
 
 ### Gate 1 — Contract frozen
 
-- [ ] Both owners approve this build plan and `docs/API_CONTRACT.md`.
-- [ ] Paid resource and fixture values are agreed.
-- [ ] Documents are merged to `main`; both feature branches update from `main`.
+- [x] Both owners approve this build plan and `docs/API_CONTRACT.md`.
+- [x] Paid resource and fixture values are agreed.
+- [x] Documents are merged to `main`; both feature branches update from `main`.
 
 ### Gate 2 — Recovery engine
 
@@ -201,10 +201,10 @@ requests as each gate passes.
 
 ### Gate 3 — Payment vertical slice
 
-- [ ] Supplier responds with structured HTTP 402 requirements.
-- [ ] One XRPL Testnet payment settles successfully.
-- [ ] Supplier verifies the payment before returning the resource.
-- [ ] Idempotent retry does not pay or deliver twice.
+- [x] Supplier responds with structured HTTP 402 requirements.
+- [x] One XRPL Testnet payment settles successfully.
+- [x] Supplier verifies the payment before returning the resource.
+- [x] Idempotent retry does not pay or deliver twice.
 
 ### Agent decision layer
 
