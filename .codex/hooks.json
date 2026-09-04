@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node C:/Users/javer/Downloads/SingHacks-Ripple/hook/agents/codex/stop-hook.mjs",
+            "timeout": 60
+          }
+        ]
+      }
+    ]
+  }
+}

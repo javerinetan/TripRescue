@@ -1,0 +1,27 @@
+# Installed skill copies. Canonical source is skills/.
+# Install locally with `bash skills/install.sh` (symlinks), or copy the folder
+# on Windows, where git checks symlinks out as plain text files.
+.claude/skills/
+.cursor/skills/
+.codex/skills/
+
+# Vendored repos, cloned on demand by skills/*/scripts/refresh.sh
+ows/
+rlusd-skills/
+x402-secure/
+xrpl-dev-portal/
+XRPL-Standards/
+
+# Local feedback-hook overrides (real config lives at ~/.xrpl-feedback-hook.json)
+hook/config.json
+
+# Dependencies / build output
+node_modules/
+dist/
+build/
+.env
+.env.local
+
+# OS cruft
+.DS_Store
+Thumbs.db

@@ -1,0 +1,76 @@
+[
+  {
+    "id": "e1e79e3b-7566-414e-a644-27dfa7859ecd",
+    "input": {
+      "vendor": "Meridian Components Pte. Ltd.",
+      "invoiceRef": "INV-2048-SG",
+      "country": "Singapore",
+      "amountUsd": 18500,
+      "budgetXrp": 0.06,
+      "riskTolerance": "balanced"
+    },
+    "status": "delivered",
+    "transaction": {
+      "hash": "EA553E1E42A2AC50E5983F125C8D73718C021C25226DFF731DD01FA9E68904C2",
+      "result": "tesSUCCESS",
+      "ledgerIndex": 20477534,
+      "explorerUrl": "https://testnet.xrpl.org/transactions/EA553E1E42A2AC50E5983F125C8D73718C021C25226DFF731DD01FA9E68904C2"
+    },
+    "prepared": null,
+    "preview": null
+  },
+  {
+    "id": "5827b16d-24b0-46d3-8e65-7170460b4353",
+    "input": {
+      "vendor": "Meridian Components Pte. Ltd.",
+      "invoiceRef": "INV-2048-SG",
+      "country": "Vietnam",
+      "amountUsd": 18500,
+      "budgetXrp": 0.06,
+      "riskTolerance": "low"
+    },
+    "status": "delivered",
+    "transaction": {
+      "hash": "CBF62BAC26883E6A0F9C3C365EA2F36C0EC576AE9D1F8FA31B57AE8CCD42B9F6",
+      "result": "tesSUCCESS",
+      "ledgerIndex": 20477601,
+      "explorerUrl": "https://testnet.xrpl.org/transactions/CBF62BAC26883E6A0F9C3C365EA2F36C0EC576AE9D1F8FA31B57AE8CCD42B9F6"
+    },
+    "prepared": null,
+    "preview": null
+  },
+  {
+    "id": "c820c363-c1c5-4d0d-bebd-cb86588b6255",
+    "input": {
+      "vendor": "Meridian Components Pte. Ltd.",
+      "invoiceRef": "INV-2048-SG",
+      "country": "Singapore",
+      "amountUsd": 18500,
+      "budgetXrp": 0.06,
+      "riskTolerance": "balanced"
+    },
+    "status": "delivered",
+    "transaction": {
+      "hash": "E61EFC566561119FB88C11C8DA91B792C095A86A927BC3CC8A08DA4A394CF8F4",
+      "result": "tesSUCCESS",
+      "ledgerIndex": 20477997,
+      "explorerUrl": "https://testnet.xrpl.org/transactions/E61EFC566561119FB88C11C8DA91B792C095A86A927BC3CC8A08DA4A394CF8F4"
+    },
+    "prepared": null,
+    "preview": {
+      "network": "testnet",
+      "type": "Payment",
+      "from": "rMmDQfbKv6GTr7KZZ4cSWKV9r5sv1Kyksm",
+      "to": "rnkMaVghfEbsgWx8GXidh5c1PJ4V9Mvn2y",
+      "amountDrops": "51000",
+      "amountXrp": 0.051,
+      "feeDrops": "12",
+      "feeXrp": 0.000012,
+      "sequence": 20477393,
+      "lastLedgerSequence": 20478012,
+      "expiresInLedgers": 19,
+      "sourceTag": 20260530,
+      "memo": "c820c363-c1c5-4d0d-bebd-cb86588b6255"
+    }
+  }
+]
