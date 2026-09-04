@@ -9,19 +9,19 @@
 // Every check here is deterministic. No LLM output can relax it.
 
 import { NETWORK_TESTNET } from "./x402.js";
+import { demoMandate } from "./recovery.js";
 
 const mandates = new Map();
 
-// The canonical demo mandate from docs/BUILD_PLAN.md.
-export const DEMO_MANDATE = Object.freeze({
-  id: "mandate-tokyo-001",
-  maximumAdditionalSpend: { currency: "SGD", minorUnits: 30000 },
-  arrivalDeadline: "2026-09-05T12:00:00+09:00",
-  preserveBookingIds: ["activity-fuji"],
-  accommodationRules: ["no-shared-accommodation"],
-  allowedSupplierIds: ["supplier-protected-transfer"],
-  network: NETWORK_TESTNET,
-});
+// Single source of truth: the domain layer owns the mandate, the payment layer
+// re-enforces it. Defining it twice would let the two halves drift apart.
+export const DEMO_MANDATE = Object.freeze({ ...demoMandate });
+
+if (DEMO_MANDATE.network !== NETWORK_TESTNET) {
+  throw new Error(
+    `Mandate network ${DEMO_MANDATE.network} does not match the payment network ${NETWORK_TESTNET}.`,
+  );
+}
 
 export function resetMandates() {
   mandates.clear();

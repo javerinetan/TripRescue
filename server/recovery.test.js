@@ -117,7 +117,7 @@ test("reports every hard Rescue Mandate violation", () => {
   };
 
   const result = evaluateMandate(unsafePlan, demoMandate, {
-    network: "xrpl-mainnet",
+    network: "xrpl:0",
   });
 
   assert.equal(result.mandateCompliant, false);

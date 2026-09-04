@@ -1,6 +1,9 @@
 // Supplier, x402 and payment routes (Javerine's ownership per docs/BUILD_PLAN.md).
 //
 // Flow, matching the canonical sequence in docs/BUILD_PLAN.md:
+//   POST /api/recovery/analyze                        cascade assessment
+//   POST /api/recovery/plans                          three whole-trip strategies
+//   POST /api/recovery/offers                         discovery + economic decision
 //   GET  /api/suppliers/registry                      runtime discovery
 //   GET  /api/suppliers/:s/offers/:o/resource         402 challenge, later delivery
 //   POST /api/payments/prepare                        mandate re-check + sign intent
@@ -46,8 +49,10 @@ import {
   updateExecution,
 } from "./executions.js";
 import { publicWallets, signPaymentIntent, submitSignedBlob, verifySettlement } from "./xrpl.js";
+import { analyzeCancellation, demoItinerary, generateRecoveryPlans } from "./recovery.js";
 
 const CONTRACT_VERSION = "1.0.0";
+const DEMO_RECOVERY_ID = "recovery-tokyo-001";
 
 function fail(res, status, code, message, extra = {}) {
   return res.status(status).json({
@@ -80,6 +85,80 @@ export function createRouter() {
     });
   });
 
+  // --- Recovery domain (Min Xie's engine, exposed over HTTP) ----------------
+
+  router.post("/recovery/analyze", (req, res) => {
+    const { trigger, bookings } = req.body ?? {};
+    const itinerary = Array.isArray(bookings) && bookings.length > 0 ? bookings : demoItinerary;
+    const canceledBookingId = trigger?.bookingId ?? "flight-sin-nrt";
+    const replacementArrivalTime = trigger?.replacementArrivalTime ?? "2026-09-05T09:30:00+09:00";
+
+    if (!itinerary.some((booking) => booking.id === canceledBookingId)) {
+      return fail(res, 400, "invalid-request", `${canceledBookingId} is not in this itinerary.`);
+    }
+
+    res.json({
+      contractVersion: CONTRACT_VERSION,
+      recoveryId: DEMO_RECOVERY_ID,
+      bookings: itinerary,
+      assessments: analyzeCancellation({ bookings: itinerary, canceledBookingId, replacementArrivalTime }),
+    });
+  });
+
+  router.post("/recovery/plans", (req, res) => {
+    const mandate = req.body?.mandate ?? getMandate(DEMO_MANDATE.id);
+    if (!mandate) return fail(res, 404, "not-found", "No mandate supplied and no demo mandate registered.");
+
+    const plans = generateRecoveryPlans(mandate);
+    const compliant = plans.filter((plan) => plan.mandateCompliant);
+    // Recommend the lowest-risk compliant plan; fall back to the first plan so
+    // the UI can still explain why nothing is authorized.
+    const recommended = compliant.slice().sort((a, b) => a.riskScore - b.riskScore)[0] ?? null;
+
+    res.json({
+      contractVersion: CONTRACT_VERSION,
+      recoveryId: req.body?.recoveryId ?? DEMO_RECOVERY_ID,
+      plans,
+      recommendedPlanId: recommended?.id ?? null,
+    });
+  });
+
+  // Discovery plus the economic decision: which discovered offer best satisfies
+  // the mandate. Offers are ranked, not hardcoded.
+  router.post("/recovery/offers", (req, res) => {
+    const mandateId = req.body?.mandateId ?? DEMO_MANDATE.id;
+    const mandate = getMandate(mandateId);
+    if (!mandate) return fail(res, 404, "not-found", `Mandate ${mandateId} is unknown.`);
+
+    const offers = listOffers();
+    const scored = offers.map((offer) => ({
+      offer,
+      violations: evaluatePurchase({ mandateId, offer, network: NETWORK_TESTNET }),
+    }));
+    const eligible = scored.filter(({ violations }) => violations.length === 0);
+    const best = eligible.slice().sort((a, b) => a.offer.riskScore - b.offer.riskScore)[0] ?? null;
+
+    const reasons = best
+      ? [
+          `${best.offer.title} preserves ${mandate.preserveBookingIds.join(", ")} and arrives by ${best.offer.arrivalTime}.`,
+          `Its ${formatSgd(best.offer.price.minorUnits)} price fits the remaining ${formatSgd(remainingBudget(mandateId))} budget.`,
+          `${scored.length - eligible.length} of ${scored.length} discovered offers were refused by the mandate.`,
+        ]
+      : ["No discovered offer satisfies the mandate; the traveller must widen it."];
+
+    res.json({
+      contractVersion: CONTRACT_VERSION,
+      offers: offers.map((offer) => ({ ...offer, expiresAt: null })),
+      decision: {
+        selectedOfferId: best?.offer.id ?? null,
+        consideredOfferIds: offers.map((offer) => offer.id),
+        reasons,
+        mandateCompliant: Boolean(best),
+        violations: best ? [] : scored.flatMap(({ violations }) => violations),
+      },
+    });
+  });
+
   // Restores mandate budget and clears executions so the demo can be re-run.
   // Settled XRPL transactions are of course untouched; only local state resets.
   router.post("/demo/reset", (_req, res) => {
@@ -104,7 +183,7 @@ export function createRouter() {
     const offer = getOfferForSupplier(supplierId, offerId);
     if (!offer) return fail(res, 404, "not-found", `Offer ${offerId} is unknown for ${supplierId}.`);
 
-    const recoveryId = String(req.query.recoveryId || "recovery-tokyo-001");
+    const recoveryId = String(req.query.recoveryId || DEMO_RECOVERY_ID);
     const wallets = publicWallets();
     if (!wallets.configured) {
       return fail(res, 502, "settlement-failed", "Supplier wallet is not configured. Run npm run wallet:setup.");

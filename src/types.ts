@@ -82,3 +82,49 @@ export interface JourneyStep {
   detail?: string;
   state: StepState;
 }
+
+export interface Booking {
+  id: string;
+  type: "flight" | "transfer" | "hotel" | "rental" | "activity";
+  provider: string;
+  title: string;
+  startTime: string;
+  endTime?: string;
+  dependsOn: string[];
+  cost: Money;
+  refundable: boolean;
+  changeDeadline?: string;
+}
+
+export interface BookingAssessment {
+  bookingId: string;
+  status: "safe" | "at-risk" | "broken";
+  reasonCode: string;
+  explanation: string;
+}
+
+export interface RecoveryAction {
+  id: string;
+  kind: "preserve" | "cancel" | "change" | "purchase" | "notify";
+  bookingId?: string;
+  supplierId?: string;
+  description: string;
+  incrementalCost: Money;
+  reversible: boolean;
+  dependsOnActionIds: string[];
+}
+
+export interface RecoveryPlan {
+  id: string;
+  kind: "fastest" | "cheapest" | "most-reliable";
+  title: string;
+  actions: RecoveryAction[];
+  additionalCost: Money;
+  arrivalTime: string;
+  riskScore: number;
+  preservesBookingIds: string[];
+  accommodationType: "private" | "shared" | "unchanged";
+  mandateCompliant: boolean;
+  violations: MandateViolation[];
+  explanation: string;
+}

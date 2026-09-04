@@ -68,7 +68,8 @@ export const demoMandate = {
   preserveBookingIds: ["activity-fuji"],
   accommodationRules: ["no-shared-accommodation"],
   allowedSupplierIds: ["supplier-protected-transfer"],
-  network: "xrpl-testnet",
+  // CAIP-2 Testnet identifier, matching the x402 payment layer.
+  network: "xrpl:1",
 };
 
 const explanations = {
