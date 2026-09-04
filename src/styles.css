@@ -233,3 +233,138 @@ button.ghost {
   .kv > div { flex-direction: column; gap: 2px; }
   .kv dd { text-align: left; }
 }
+
+/* Trip cascade -------------------------------------------------------- */
+
+.counts { display: flex; gap: 6px; flex-wrap: wrap; }
+
+.tag {
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 2px 9px;
+  white-space: nowrap;
+}
+.tag.broken { background: rgba(229, 106, 106, 0.16); color: var(--bad); }
+.tag.at-risk { background: rgba(224, 160, 58, 0.16); color: var(--warn); }
+.tag.safe { background: rgba(53, 192, 127, 0.16); color: var(--good); }
+
+.cascade { list-style: none; margin: 0; padding: 0; }
+
+.node { position: relative; padding: 0 0 0 22px; }
+
+.node .connector {
+  position: absolute;
+  left: 4px;
+  top: -10px;
+  height: 18px;
+  width: 2px;
+  background: var(--line);
+}
+
+.node-body {
+  border-left: 2px solid var(--line);
+  padding: 10px 0 14px 16px;
+  margin-left: -22px;
+  padding-left: 20px;
+}
+.node.broken .node-body { border-left-color: var(--bad); }
+.node.at-risk .node-body { border-left-color: var(--warn); }
+.node.safe .node-body { border-left-color: var(--good); }
+
+.node-head { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+.node-head strong { font-size: 14px; }
+
+.status-dot { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.status-dot.broken { background: var(--bad); }
+.status-dot.at-risk { background: var(--warn); }
+.status-dot.safe { background: var(--good); }
+
+.node-meta {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.node-reason { margin: 6px 0 0; font-size: 13px; color: var(--text); }
+
+/* Recovery plans ------------------------------------------------------ */
+
+.small { font-size: 12px; }
+
+.plans {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 12px;
+}
+
+.plan {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 15px;
+  display: flex;
+  flex-direction: column;
+}
+
+.plan.selected { border-color: var(--good); }
+.plan.blocked { opacity: 0.72; }
+
+.plan header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.plan-kind { font-size: 13px; font-weight: 600; }
+.plan-cost { margin: 0; font-size: 24px; font-weight: 600; letter-spacing: -0.02em; }
+.plan-arrival, .plan-risk { margin: 2px 0 0; font-size: 12px; color: var(--muted); }
+
+.plan-actions {
+  list-style: none;
+  margin: 12px 0;
+  padding: 0;
+  font-size: 12px;
+  display: grid;
+  gap: 6px;
+}
+.plan-actions li { color: var(--muted); line-height: 1.45; }
+.plan-actions li.irreversible { color: var(--text); }
+
+.action-kind {
+  display: inline-block;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 1px 5px;
+  margin-right: 6px;
+  color: var(--muted);
+}
+.action-kind.purchase { color: var(--accent); border-color: var(--accent); }
+.action-kind.cancel { color: var(--bad); border-color: var(--bad); }
+.action-kind.preserve { color: var(--good); border-color: var(--good); }
+
+.warn-flag {
+  margin-left: 6px;
+  font-size: 10px;
+  color: var(--warn);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.plan-explanation { margin: 0 0 12px; font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+.plan-violations { margin-top: auto; font-size: 12px; }
+.plan-violations p { margin: 4px 0; color: var(--muted); line-height: 1.45; }
+
+.plan button { margin-top: auto; width: 100%; }
+
+.trigger .card-head { margin-bottom: 6px; }
+.trigger h2 { font-size: 16px; }

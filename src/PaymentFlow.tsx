@@ -14,6 +14,7 @@ import {
   discoverSuppliers,
   executePayment,
   fetchMandate,
+  formatLocalTime,
   formatSgd,
   preparePayment,
 } from "./api";
@@ -29,7 +30,7 @@ const STEPS: { id: string; label: string }[] = [
 
 type Log = { id: number; kind: "info" | "decision" | "refusal" | "money" | "error"; text: string };
 
-export default function PaymentFlow() {
+export default function PaymentFlow({ planId }: { planId: string }) {
   const [mandate, setMandate] = useState<RescueMandate | null>(null);
   const [remaining, setRemaining] = useState<number | null>(null);
   const [offers, setOffers] = useState<SupplierOffer[]>([]);
@@ -134,7 +135,7 @@ export default function PaymentFlow() {
       <section className="card mandate">
         <div className="card-head">
           <h2>Rescue Mandate</h2>
-          <span className="pill">{MANDATE_ID}</span>
+          <span className="pill">{MANDATE_ID} · {planId}</span>
         </div>
         {mandate && (
           <>
@@ -149,7 +150,7 @@ export default function PaymentFlow() {
               </div>
             </div>
             <ul className="constraints">
-              <li>Arrive before {new Date(mandate.arrivalDeadline).toLocaleString()}</li>
+              <li>Arrive before {formatLocalTime(mandate.arrivalDeadline)}</li>
               <li>Preserve {mandate.preserveBookingIds.join(", ")}</li>
               <li>Pay only {mandate.allowedSupplierIds.join(", ")}</li>
               <li>Network {mandate.network}</li>

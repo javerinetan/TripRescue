@@ -106,3 +106,59 @@ export async function claimResource(
 export function formatSgd(minorUnits: number): string {
   return `S$${(minorUnits / 100).toFixed(2)}`;
 }
+
+// --- Recovery domain ---------------------------------------------------
+
+export async function analyzeDisruption(): Promise<{
+  recoveryId: string;
+  bookings: import("./types").Booking[];
+  assessments: import("./types").BookingAssessment[];
+}> {
+  const { data } = await call<never>("/api/recovery/analyze", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      contractVersion: "1.0.0",
+      trigger: {
+        type: "flight-cancelled",
+        bookingId: "flight-sin-nrt",
+        replacementArrivalTime: "2026-09-05T09:30:00+09:00",
+      },
+      bookings: [],
+    }),
+  });
+  return data as never;
+}
+
+export async function fetchPlans(): Promise<{
+  plans: import("./types").RecoveryPlan[];
+  recommendedPlanId: string | null;
+}> {
+  const { data } = await call<never>("/api/recovery/plans", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ contractVersion: "1.0.0", recoveryId: RECOVERY_ID }),
+  });
+  return data as never;
+}
+
+export async function resetDemo(): Promise<void> {
+  await call("/api/demo/reset", { method: "POST" });
+}
+
+/**
+ * Formats an ISO string using the wall-clock time it was written in, not the
+ * viewer's timezone. A Japan itinerary must read in Japan time or the demo
+ * times look wrong to anyone outside JST.
+ */
+export function formatLocalTime(iso: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(iso);
+  if (!match) return iso;
+  const [, , month, day, hour, minute] = match;
+  const monthName = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][
+    Number(month) - 1
+  ];
+  const offset = iso.slice(-6);
+  const zone = offset === "+09:00" ? "JST" : offset === "+08:00" ? "SGT" : offset;
+  return `${Number(day)} ${monthName}, ${hour}:${minute} ${zone}`;
+}

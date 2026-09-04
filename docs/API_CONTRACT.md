@@ -100,7 +100,8 @@ interface RescueMandate {
   preserveBookingIds: string[];
   accommodationRules: string[];
   allowedSupplierIds: string[];
-  network: "xrpl-testnet";
+  // CAIP-2 Testnet. Canonical across domain and payment layers.
+  network: "xrpl:1";
 }
 
 interface MandateViolation {
@@ -135,8 +136,8 @@ interface DecisionTrace {
 
 interface PaymentRequirement {
   requirementId: string;
-  scheme: "xrpl-direct";
-  network: "xrpl-testnet";
+  scheme: "exact";
+  network: "xrpl:1";
   asset: "XRP";
   amountDrops: string;
   destination: string;
@@ -227,7 +228,7 @@ During V1, an empty `bookings` array means “use the fixed demo itinerary.”
     "preserveBookingIds": ["activity-fuji"],
     "accommodationRules": ["no-shared-accommodation"],
     "allowedSupplierIds": ["supplier-protected-transfer"],
-    "network": "xrpl-testnet"
+    "network": "xrpl:1"
   }
 }
 ```
@@ -301,8 +302,8 @@ The first unpaid request returns `402 Payment Required`.
   },
   "paymentRequirement": {
     "requirementId": "requirement-transfer-001",
-    "scheme": "xrpl-direct",
-    "network": "xrpl-testnet",
+    "scheme": "exact",
+    "network": "xrpl:1",
     "asset": "XRP",
     "amountDrops": "51000",
     "destination": "<merchant testnet address>",
@@ -359,8 +360,8 @@ Two fields differ from the placeholder sketch above and are now authoritative:
   "mandateId": "mandate-tokyo-001",
   "paymentRequirement": {
     "requirementId": "requirement-transfer-001",
-    "scheme": "xrpl-direct",
-    "network": "xrpl-testnet",
+    "scheme": "exact",
+    "network": "xrpl:1",
     "asset": "XRP",
     "amountDrops": "51000",
     "destination": "<merchant testnet address>",
