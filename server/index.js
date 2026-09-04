@@ -2,10 +2,14 @@ import "dotenv/config";
 import cors from "cors";
 import express from "express";
 import { createRouter } from "./routes.js";
+import { HEADER_REQUIRED, HEADER_RESPONSE } from "./x402.js";
 import { publicWallets } from "./xrpl.js";
 
 const app = express();
-app.use(cors());
+// Custom response headers are invisible to a cross-origin browser client
+// unless they are explicitly exposed, so an x402 client could not read the
+// challenge or the settlement result without this.
+app.use(cors({ exposedHeaders: [HEADER_REQUIRED, HEADER_RESPONSE] }));
 app.use(express.json());
 
 // Liveness plus a check that both XRPL wallets loaded from .env.

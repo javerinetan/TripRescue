@@ -81,9 +81,7 @@ export default function App() {
 
         {phase === "loading" && <div className="card"><p className="muted">Analysing the cascade…</p></div>}
 
-        {bookings.length > 0 && assessments.length > 0 && (
-          <TripCascade bookings={bookings} assessments={assessments} />
-        )}
+        {bookings.length > 0 && <TripCascade bookings={bookings} assessments={assessments} />}
 
         {plans.length > 0 && (
           <RecoveryPlans
