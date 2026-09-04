@@ -1,7 +1,7 @@
 # Trip Rescue
 
 > **When one booking breaks, fix the whole trip.**
-> Built by **Team Peaunts** for SingHacks 2026 — Ripple Challenge 2.
+> Built by **Team Peanutss** for SingHacks 2026 — Ripple Challenge 2.
 
 **Team:** Javerine Tan · Min Xie
 
@@ -96,7 +96,7 @@ The hackathon feedback hook is installed project-scoped in
 `~/.xrpl-feedback-hook.json` — each teammate runs this once after cloning:
 
 ```bash
-TEAM_NAME="Peaunts" HACKER_NAME="<your name>" node hook/setup.mjs --non-interactive
+TEAM_NAME="Peanutss" HACKER_NAME="<your name>" node hook/setup.mjs --non-interactive
 ```
 
 ## Agent skill
