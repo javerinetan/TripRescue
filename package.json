@@ -8,7 +8,8 @@
     "start": "node server/index.js",
     "build": "vite build",
     "check": "tsc --noEmit && node --test server/*.test.js",
-    "wallet:setup": "node scripts/setup-wallets.js"
+    "wallet:setup": "node scripts/setup-wallets.js",
+    "demo:x402": "node scripts/demo-x402.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

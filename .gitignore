@@ -25,3 +25,6 @@ build/
 # OS cruft
 .DS_Store
 Thumbs.db
+
+# Generated XRPL transaction logs
+data/
