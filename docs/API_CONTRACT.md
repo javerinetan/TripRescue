@@ -87,6 +87,7 @@ interface RecoveryPlan {
   arrivalTime: string;
   riskScore: number;
   preservesBookingIds: string[];
+  accommodationType: "private" | "shared" | "unchanged";
   mandateCompliant: boolean;
   violations: MandateViolation[];
   explanation: string;

@@ -193,10 +193,11 @@ requests as each gate passes.
 
 ### Gate 2 — Recovery engine
 
-- [ ] Fixed itinerary is represented by shared domain types.
-- [ ] Cascade tests produce the expected five statuses.
-- [ ] Three complete recovery plans are generated.
-- [ ] Mandate tests accept a compliant plan and reject budget/deadline violations.
+- [x] Fixed itinerary is represented by shared domain types.
+- [x] Cascade tests produce the expected five statuses.
+- [x] Three complete recovery plans are generated.
+- [x] Mandate tests accept a compliant plan and reject budget, deadline,
+  preserved-booking, accommodation, supplier, and network violations.
 
 ### Gate 3 — Payment vertical slice
 
@@ -251,4 +252,3 @@ cancelled flight
 
 All seven safety invariants must hold, the transaction must be inspectable, and
 the demo narrative must accurately describe what the code performs.
-
