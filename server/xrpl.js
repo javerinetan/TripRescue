@@ -47,7 +47,7 @@ export async function preparePayment(plan) {
       Amount: String(plan.totalDrops),
       SourceTag: XRPL_STARTER_KIT_SOURCE_TAG,
       Memos: [{ Memo: {
-        MemoType: Buffer.from("clearspend/x402", "utf8").toString("hex").toUpperCase(),
+        MemoType: Buffer.from("triprescue/x402", "utf8").toString("hex").toUpperCase(),
         MemoData: Buffer.from(plan.id, "utf8").toString("hex").toUpperCase(),
       } }],
     };

@@ -1,120 +1,112 @@
-# ClearSpend
+# Trip Rescue
 
-> The autonomous due-diligence buyer for small businesses — built by **Team Peaunts** for SingHacks 2026.
+> **When one booking breaks, fix the whole trip.**
+> Built by **Team Peaunts** for SingHacks 2026 — Ripple Challenge 2.
 
-ClearSpend turns a supplier invoice and a spending policy into a decision-ready risk report. Its agent discovers specialist evidence providers, compares price, confidence, relevance, and speed, chooses the best bundle under budget, pays for it through an HTTP 402 flow, and delivers the purchased evidence only after the XRP Ledger receipt is validated.
+Travel providers understand their booking. Trip Rescue understands your trip.
 
-## Team Peaunts
+## The problem
 
-- Javerine
-- Jing Wei
-- Min Xie
-- Shuan
-- Evan Sim
+Independent travellers assemble one trip from many unrelated providers — airline,
+airport bus, hotel, rental car, activity. Those bookings are purchased
+independently but are **operationally dependent** on each other:
 
-## Why this should exist
-
-Small businesses face the same supplier fraud, sanctions, and invoice-manipulation risks as large companies, but enterprise due-diligence suites are slow, expensive subscriptions. A finance operator should not need to know which registry, sanctions, reputation, or document-forensics API to buy.
-
-ClearSpend makes those services composable and pay-per-use. The buyer sets an objective, risk posture, and hard XRP budget. The agent purchases only the evidence needed for that decision. Removing the agent brings back manual vendor research; removing autonomous micropayments brings back subscriptions and API account setup. Both are essential to the product.
-
-## Commercial loop
-
-1. A business submits a supplier invoice with a risk posture and spending cap.
-2. The agent infers the required evidence categories and ranks a live provider market.
-3. A merchant endpoint returns `402 Payment Required` with an exact XRPL payment requirement.
-4. ClearSpend autofills the transaction and presents the full payment preview.
-5. The user authorizes; the agent signs locally and waits for validated settlement.
-6. The merchant verifies the ledger receipt, releases the evidence, and each selected provider earns per check.
-7. ClearSpend can charge a routing fee or a monthly policy-management subscription.
-
-## Architecture
-
-```mermaid
-flowchart LR
-    U[Finance operator] -->|invoice + budget + policy| A[ClearSpend planning agent]
-    A -->|discover + score| M[Evidence marketplace]
-    M --> P1[Registry Lens]
-    M --> P2[Sanction Zero]
-    M --> P3[Invoice Sentry]
-    M --> P4[Trade Pulse]
-    M -->|HTTP 402 exact requirement| A
-    A -->|autofill + human checkpoint| W[Policy-gated agent wallet]
-    W -->|XRP Payment| X[(XRPL Testnet)]
-    X -->|validated transaction hash| M
-    M -->|paid evidence bundle| A
-    A -->|decision report + audit trail| U
+```
+Flight arrival → airport bus → hotel check-in → rental pickup → next-day activity
 ```
 
-## What is real in the prototype
+When the flight is cancelled, the traveller becomes the integration layer. They
+have to work out which downstream reservations are now impossible, which are
+merely at risk, which can still be refunded, which cancellation deadlines are
+about to expire, and what should be secured *before* anything is cancelled — all
+while prices and availability keep moving.
 
-- Multi-objective provider discovery and ranking with a hard, enforced spending cap.
-- An x402-style merchant route at `GET /api/merchant/evidence/:reviewId`; without `X-PAYMENT` it returns HTTP 402 and an XRPL `exact` requirement.
-- Two isolated, faucet-funded XRPL Testnet wallets whose seeds remain only in `.env`.
-- `xrpl.js` transaction autofill, local signing, hash persistence before submission, `submitAndWait`, and merchant-side ledger verification.
-- XRPL AI Starter Kit attribution with SourceTag `20260530`.
-- An explicit human authorization checkpoint showing network, amount, fee, source, destination, sequence, expiry, source tag, and memo.
-- Evidence delivery is gated on a validated `tesSUCCESS` transaction matching the expected payer, recipient, and exact amount.
+Each provider sees only its own booking. Nobody sees the trip.
 
-The four evidence providers are deterministic prototype adapters so the demo is reproducible. Production adapters would call commercial company-registry, sanctions, document-forensics, and trade-data sources behind the same paid interface.
+## What we are building
 
-## Run locally
+**V1 trigger:** a confirmed flight cancellation.
 
-Requirements: Node.js 20+ and network access to XRPL Testnet.
+1. **Trip graph** — the traveller's bookings, modelled with their time and
+   dependency constraints.
+2. **Cascade reasoning** — traverse the graph to mark what is broken,
+   at risk, or unaffected.
+3. **Recovery strategies** — generate complete whole-trip plans (fastest /
+   cheapest / most reliable), not just replacement flights.
+4. **Rescue Mandate** — the traveller picks a strategy, which becomes a bounded
+   authorisation: max additional spend, arrival deadline, hard constraints.
+5. **Bounded execution** — inside the mandate the agent discovers services,
+   pays for what it needs over x402, and settles on the XRP Ledger. Outside the
+   mandate it stops and comes back to the traveller.
+
+Strategic human control, tactical agent autonomy.
+
+## Status
+
+Early. The XRPL payment layer works and is carried over from an earlier
+prototype; the travel domain logic is not built yet.
+
+| Component | State |
+| --- | --- |
+| XRPL payment engine (`server/xrpl.js`) | ✅ prepare / sign / submit / verify, Testnet |
+| Wallet setup (`scripts/setup-wallets.js`) | ✅ generates and funds Testnet wallets |
+| API + web scaffold | ✅ boots, health check only |
+| Trip graph, cascade, strategies, mandate | ⬜ not started |
+
+## Setup
+
+Requires Node 18+.
 
 ```bash
 npm install
-npm run wallet:setup
-npm run dev
+cp .env.example .env
+npm run wallet:setup    # creates and funds two Testnet wallets, writes seeds to .env
+npm run dev             # api on :8787, web on :5173
 ```
 
-Open [http://localhost:5173](http://localhost:5173). `wallet:setup` generates two wallets locally, immediately saves their seeds to the ignored `.env`, funds them from the Testnet faucet, and prints only their public addresses.
+Verify the API and wallets:
 
-Validate the repository with `npm run check` and `npm run build`.
-
-## API journey
-
-```text
-POST /api/reviews
-  → agent plan, ranked providers, selected bundle, x402 requirement
-
-POST /api/reviews/:id/prepare
-  → live autofilled XRPL transaction preview (no signature)
-
-POST /api/reviews/:id/authorize { "confirmed": true }
-  → local signature → persisted hash → submitAndWait → ledger verification
-  → purchased evidence and explorer receipt
+```bash
+curl http://localhost:8787/api/health
 ```
 
-Calling `GET /api/merchant/evidence/REVIEW_ID` without payment returns `402 Payment Required`. A validated transaction hash supplied as `X-PAYMENT` unlocks the evidence.
+`npm run check` runs the typecheck and unit tests.
 
-## Trust and safeguards
+> `.env` holds XRPL Testnet seeds and is gitignored. Never commit it, and never
+> put Mainnet keys in it.
 
-- Testnet is the default and is shown on every preview.
-- Seeds are never returned by an API, logged, committed, or displayed in the UI.
-- The transaction is autofilled before review; no guessed fees or sequence numbers.
-- The signed hash is persisted before submission for crash reconciliation.
-- `submitAndWait` prevents treating a queued transaction as settled.
-- Exact amount, payer, recipient, result, and validation state are verified before delivery.
-- Spending is limited twice: in bundle selection and in the exact payment requirement.
-- The transaction memo contains only the internal review ID and is never treated as an instruction.
-- Production design replaces local seeds with an HSM/KMS signer, provider attestations, rate limits, idempotency keys, and persistent storage.
+## Repo layout
 
-## Transaction proof
-
-Both authorized demo payments were validated with `tesSUCCESS` and reconciled without resubmission after fixing an XRPL API v2 receipt-field compatibility issue.
-
-- [EA553E1E…04C2 — ledger 20477534](https://testnet.xrpl.org/transactions/EA553E1E42A2AC50E5983F125C8D73718C021C25226DFF731DD01FA9E68904C2)
-- [CBF62BAC…B9F6 — ledger 20477601](https://testnet.xrpl.org/transactions/CBF62BAC26883E6A0F9C3C365EA2F36C0EC576AE9D1F8FA31B57AE8CCD42B9F6)
-
-## Repository map
-
-```text
-src/                      React customer experience
-server/planner.js         Agent policy, discovery, scoring, and evidence assembly
-server/xrpl.js            Safe wallet, signing, submission, and verification layer
-server/index.js           Review and x402 merchant API
-scripts/setup-wallets.js  Testnet wallet creation and faucet funding
-DEMO_SCRIPT.md            Three-minute judging walkthrough
-BUILDER_FEEDBACK.md       Practical XRPL builder feedback
 ```
+server/xrpl.js        XRPL payment engine (Testnet)
+server/index.js       Express API
+src/                  React + Vite front end
+scripts/              wallet setup
+skills/               xrpl-agentic-resources agent skill
+hook/                 XRPL builder-feedback hook (see below)
+BUILDER_FEEDBACK.md   XRPL developer feedback collected during the build
+```
+
+## Builder feedback hook
+
+The hackathon feedback hook is installed project-scoped in
+`.claude/settings.json` and `.codex/hooks.json`. Team and hacker names live in
+`~/.xrpl-feedback-hook.json` — each teammate runs this once after cloning:
+
+```bash
+TEAM_NAME="Peaunts" HACKER_NAME="<your name>" node hook/setup.mjs --non-interactive
+```
+
+## Agent skill
+
+```bash
+bash skills/install.sh
+```
+
+On Windows, git checks the symlinks out as plain text files. Copy the folder
+into `.claude/skills/` instead.
+
+## History
+
+An earlier idea, **ClearSpend** (an autonomous due-diligence buyer), is preserved
+on the `archive/clearspend` branch. Trip Rescue reuses its XRPL payment layer.
