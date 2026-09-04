@@ -1,14 +1,19 @@
 // The full Trip Rescue journey:
-//   cancellation -> cascade -> three strategies -> mandate -> x402 -> XRPL -> delivery
+//   priority -> cancellation -> cascade -> strategies -> mandate -> x402 -> XRPL -> delivery
 
 import { useEffect, useState } from "react";
-import { analyzeDisruption, fetchPlans, resetDemo } from "./api";
+import { analyzeDisruption, configureMandate, fetchPlans, fetchPriorities, resetDemo } from "./api";
+import type { Priority } from "./api";
+import PrioritySelector from "./PrioritySelector";
 import TripCascade from "./TripCascade";
 import RecoveryPlans from "./RecoveryPlans";
 import PaymentFlow from "./PaymentFlow";
 import type { Booking, BookingAssessment, RecoveryPlan } from "./types";
 
 export default function App() {
+  const [priorities, setPriorities] = useState<Priority[]>([]);
+  const [priority, setPriority] = useState("leisure");
+  const [budget, setBudget] = useState(30000);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [assessments, setAssessments] = useState<BookingAssessment[]>([]);
   const [plans, setPlans] = useState<RecoveryPlan[]>([]);
@@ -17,6 +22,43 @@ export default function App() {
   const [phase, setPhase] = useState<"idle" | "loading" | "cascade" | "authorised">("idle");
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    analyzeDisruption()
+      .then((analysis) => setBookings(analysis.bookings))
+      .catch(() => setError("API not reachable. Start it with npm run dev."));
+    fetchPriorities()
+      .then((data) => {
+        setPriorities(data.priorities);
+        const initial = data.priorities.find((p) => p.id === data.default);
+        if (initial) {
+          setPriority(initial.id);
+          setBudget(initial.suggestedBudget.minorUnits);
+        }
+      })
+      .catch(() => undefined);
+  }, []);
+
+  function choosePriority(id: string) {
+    setPriority(id);
+    const match = priorities.find((p) => p.id === id);
+    if (match) setBudget(match.suggestedBudget.minorUnits);
+  }
+
+  // Re-plan whenever the mandate inputs change, so the traveller sees the
+  // consequence of their own choice before authorising anything.
+  async function refreshPlans() {
+    await configureMandate(priority, budget);
+    const planned = await fetchPlans();
+    setPlans(planned.plans);
+    setRecommendedPlanId(planned.recommendedPlanId);
+  }
+
+  useEffect(() => {
+    if (phase !== "cascade") return;
+    refreshPlans().catch((err) => setError((err as Error).message));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [priority, budget, phase]);
+
   async function triggerCancellation() {
     setPhase("loading");
     setError(null);
@@ -24,9 +66,7 @@ export default function App() {
       const analysis = await analyzeDisruption();
       setBookings(analysis.bookings);
       setAssessments(analysis.assessments);
-      const planned = await fetchPlans();
-      setPlans(planned.plans);
-      setRecommendedPlanId(planned.recommendedPlanId);
+      await refreshPlans();
       setPhase("cascade");
     } catch (err) {
       setError((err as Error).message);
@@ -36,19 +76,11 @@ export default function App() {
 
   async function startOver() {
     await resetDemo().catch(() => undefined);
-    setBookings([]);
     setAssessments([]);
     setPlans([]);
     setSelectedPlan(null);
     setPhase("idle");
   }
-
-  // Load the itinerary immediately so the demo opens on the trip, not a blank page.
-  useEffect(() => {
-    analyzeDisruption()
-      .then((analysis) => setBookings(analysis.bookings))
-      .catch(() => setError("API not reachable. Start it with npm run dev."));
-  }, []);
 
   return (
     <main className="shell">
@@ -65,9 +97,7 @@ export default function App() {
             <h2>Singapore → Tokyo, 5 September</h2>
             <div className="actions">
               {phase === "idle" ? (
-                <button disabled={phase !== "idle"} onClick={triggerCancellation}>
-                  Cancel flight SQ634
-                </button>
+                <button onClick={triggerCancellation}>Cancel flight SQ634</button>
               ) : (
                 <button className="ghost" onClick={startOver}>Start over</button>
               )}
@@ -78,6 +108,17 @@ export default function App() {
             reservation.
           </p>
         </section>
+
+        {priorities.length > 0 && (
+          <PrioritySelector
+            priorities={priorities}
+            selected={priority}
+            budget={budget}
+            onSelect={choosePriority}
+            onBudgetChange={setBudget}
+            disabled={phase === "authorised"}
+          />
+        )}
 
         {phase === "loading" && <div className="card"><p className="muted">Analysing the cascade…</p></div>}
 
@@ -96,7 +137,7 @@ export default function App() {
           />
         )}
 
-        {selectedPlan && <PaymentFlow planId={selectedPlan.id} />}
+        {selectedPlan && <PaymentFlow key={selectedPlan.id} planId={selectedPlan.id} />}
       </div>
     </main>
   );

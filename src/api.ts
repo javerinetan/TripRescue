@@ -1,6 +1,6 @@
 // API client for the supplier, x402 and payment routes.
 
-import type { ExecutionReceipt, PaymentRequirement, RescueMandate, SupplierOffer, TransactionPreview } from "./types";
+import type { ExecutionReceipt, Money, PaymentRequirement, RescueMandate, SupplierOffer, TransactionPreview } from "./types";
 
 const BASE = import.meta.env.VITE_API_BASE ?? "http://localhost:8787";
 export const RECOVERY_ID = "recovery-tokyo-001";
@@ -221,4 +221,31 @@ export async function setFault(mode: FaultMode): Promise<void> {
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ mode }),
   });
+}
+
+export interface Priority {
+  id: string;
+  label: string;
+  summary: string;
+  suggestedBudget: Money;
+  rank: "cost" | "time" | "risk";
+}
+
+export async function fetchPriorities(): Promise<{ priorities: Priority[]; default: string }> {
+  const { data } = await call<never>("/api/priorities");
+  return data as never;
+}
+
+/** Authorising a strategy writes the mandate from priority plus any edits. */
+export async function configureMandate(priority: string, budgetMinorUnits?: number): Promise<RescueMandate> {
+  const { data } = await call<{ mandate: RescueMandate }>("/api/mandates/configure", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      contractVersion: "1.0.0",
+      priority,
+      ...(budgetMinorUnits ? { maximumAdditionalSpend: { currency: "SGD", minorUnits: budgetMinorUnits } } : {}),
+    }),
+  });
+  return data.mandate;
 }

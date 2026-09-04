@@ -10,6 +10,7 @@
 
 import { NETWORK_TESTNET } from "./x402.js";
 import { demoMandate } from "./recovery.js";
+import { DEFAULT_PRIORITY, mandateFor } from "./priorities.js";
 
 const mandates = new Map();
 
@@ -26,6 +27,22 @@ if (DEMO_MANDATE.network !== NETWORK_TESTNET) {
 export function resetMandates() {
   mandates.clear();
   mandates.set(DEMO_MANDATE.id, { mandate: DEMO_MANDATE, spentMinorUnits: 0 });
+}
+
+/**
+ * Rewrites the demo mandate from a traveller priority plus any edits the
+ * traveller made. Spend resets, because a re-authorised mandate is a new
+ * authorisation, not a continuation of the old one.
+ */
+export function configureMandate({ priority = DEFAULT_PRIORITY, ...overrides } = {}) {
+  const derived = mandateFor(priority, overrides);
+  const mandate = Object.freeze({
+    ...DEMO_MANDATE,
+    ...derived,
+    network: NETWORK_TESTNET,
+  });
+  mandates.set(mandate.id, { mandate, spentMinorUnits: 0 });
+  return mandate;
 }
 
 resetMandates();
