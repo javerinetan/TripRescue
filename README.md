@@ -3,6 +3,8 @@
 > **When one booking breaks, fix the whole trip.**
 > Built by **Team Peaunts** for SingHacks 2026 — Ripple Challenge 2.
 
+**Team:** Javerine Tan · Min Xie
+
 Travel providers understand their booking. Trip Rescue understands your trip.
 
 ## The problem
