@@ -267,6 +267,7 @@ server/suppliers.js    simulated suppliers + runtime registry
 server/executions.js   idempotency and execution state
 server/routes.js       recovery, supplier, 402 and payment routes
 src/                   React UI — cascade, strategies, mandate, receipt
+docs/TripRescue-pitch.pptx  16:9 pitch deck (regenerate: node docs/build-pitch-deck.js)
 docs/BUILD_PLAN.md     scope, gates, safety invariants
 docs/API_CONTRACT.md   integration contract between both halves
 BUILDER_FEEDBACK.md    XRPL developer feedback from this build
