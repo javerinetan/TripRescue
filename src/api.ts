@@ -205,3 +205,20 @@ export async function fetchOfferDecision(): Promise<{
   });
   return data as never;
 }
+
+export const FAULT_MODES = [
+  { id: "none", label: "No fault" },
+  { id: "supplier-unavailable", label: "Supplier offline" },
+  { id: "settlement-fail", label: "Settlement rejected" },
+  { id: "budget-exhausted", label: "Budget exhausted" },
+] as const;
+
+export type FaultMode = (typeof FAULT_MODES)[number]["id"];
+
+export async function setFault(mode: FaultMode): Promise<void> {
+  await call("/api/demo/fault", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ mode }),
+  });
+}

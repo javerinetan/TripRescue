@@ -18,7 +18,15 @@ import {
   toContractRequirement,
 } from "./x402.js";
 import { getOffer, getOfferForSupplier, listOffers } from "./suppliers.js";
-import { DEMO_MANDATE, evaluatePurchase, recordSpend, resetMandates } from "./mandate.js";
+import {
+  DEMO_MANDATE,
+  evaluatePurchase,
+  recordSpend,
+  releaseSpend,
+  remainingBudget,
+  resetMandates,
+} from "./mandate.js";
+import { FAULT_MODES, clearFault, currentFault, setFault, shouldFail } from "./faults.js";
 import {
   bindIdempotencyKey,
   claimIdempotencyKey,
@@ -207,4 +215,44 @@ test("an unused key is new", () => {
 test("an expired requirement is detected", () => {
   assert.equal(isExpired({ expiresAt: "2000-01-01T00:00:00Z" }), true);
   assert.equal(isExpired({ expiresAt: "2999-01-01T00:00:00Z" }), false);
+});
+
+// --- Fault injection and failure handling (invariant 4) ----------------------
+
+test("fault modes are constrained to the known set", () => {
+  clearFault();
+  assert.equal(setFault("not-a-mode").ok, false);
+  assert.equal(currentFault(), FAULT_MODES.NONE);
+
+  assert.equal(setFault(FAULT_MODES.SETTLEMENT_FAIL).ok, true);
+  assert.equal(currentFault(), FAULT_MODES.SETTLEMENT_FAIL);
+  assert.equal(shouldFail(FAULT_MODES.SETTLEMENT_FAIL), true);
+  assert.equal(shouldFail(FAULT_MODES.SUPPLIER_UNAVAILABLE), false);
+
+  clearFault();
+  assert.equal(currentFault(), FAULT_MODES.NONE);
+});
+
+test("a released budget can be spent again after a failed settlement", () => {
+  resetMandates();
+  const offer = getOffer("offer-protected-transfer-001");
+
+  // Reserve, then release as the settlement path does when submission throws.
+  recordSpend(DEMO_MANDATE.id, offer.price.minorUnits);
+  assert.equal(remainingBudget(DEMO_MANDATE.id), 30000 - offer.price.minorUnits);
+
+  releaseSpend(DEMO_MANDATE.id, offer.price.minorUnits);
+  assert.equal(remainingBudget(DEMO_MANDATE.id), 30000);
+
+  // And the offer is purchasable again, so a failure does not strand budget.
+  assert.deepEqual(
+    evaluatePurchase({ mandateId: DEMO_MANDATE.id, offer, network: NETWORK_TESTNET }),
+    [],
+  );
+});
+
+test("releasing budget never drives the mandate negative", () => {
+  resetMandates();
+  releaseSpend(DEMO_MANDATE.id, 999999);
+  assert.equal(remainingBudget(DEMO_MANDATE.id), 30000);
 });

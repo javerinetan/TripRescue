@@ -50,9 +50,27 @@ import {
 } from "./executions.js";
 import { publicWallets, signPaymentIntent, submitSignedBlob, verifySettlement } from "./xrpl.js";
 import { analyzeCancellation, demoItinerary, generateRecoveryPlans } from "./recovery.js";
+import { FAULT_MODES, clearFault, currentFault, setFault, shouldFail } from "./faults.js";
+import { NoCompliantOfferError, decideSupplierOffer } from "./agent.js";
 
 const CONTRACT_VERSION = "1.0.0";
 const DEMO_RECOVERY_ID = "recovery-tokyo-001";
+
+/**
+ * Compares the client's echoed `accepted` block against the requirement this
+ * supplier issued. Returns a reason string on mismatch, or null when it agrees.
+ */
+function acceptedMismatch(accepted, requirement) {
+  if (!accepted || typeof accepted !== "object") return "PAYMENT-SIGNATURE did not echo an accepted requirement.";
+  const checks = [
+    [accepted.network === requirement.network, "network"],
+    [String(accepted.amount) === String(requirement.amountDrops), "amount"],
+    [accepted.payTo === requirement.destination, "destination"],
+    [accepted.extra?.invoiceId === requirement.memo, "invoiceId"],
+  ];
+  const failed = checks.find(([ok]) => !ok);
+  return failed ? `The accepted requirement disagrees on ${failed[1]}.` : null;
+}
 
 function fail(res, status, code, message, extra = {}) {
   return res.status(status).json({
@@ -123,40 +141,66 @@ export function createRouter() {
     });
   });
 
-  // Discovery plus the economic decision: which discovered offer best satisfies
-  // the mandate. Offers are ranked, not hardcoded.
-  router.post("/recovery/offers", (req, res) => {
+  // Discovery plus the economic decision. The ranking lives in agent.js, which
+  // falls back to a deterministic safest-offer choice when the AI ranker is
+  // unavailable or returns something incomplete.
+  router.post("/recovery/offers", async (req, res) => {
     const mandateId = req.body?.mandateId ?? DEMO_MANDATE.id;
     const mandate = getMandate(mandateId);
     if (!mandate) return fail(res, 404, "not-found", `Mandate ${mandateId} is unknown.`);
 
+    const planId = req.body?.planId ?? "plan-reliable-001";
+    const plan = generateRecoveryPlans(mandate).find(({ id }) => id === planId);
+    if (!plan) return fail(res, 404, "not-found", `Plan ${planId} is unknown.`);
+
     const offers = listOffers();
-    const scored = offers.map((offer) => ({
-      offer,
-      violations: evaluatePurchase({ mandateId, offer, network: NETWORK_TESTNET }),
-    }));
-    const eligible = scored.filter(({ violations }) => violations.length === 0);
-    const best = eligible.slice().sort((a, b) => a.offer.riskScore - b.offer.riskScore)[0] ?? null;
+    try {
+      const decision = await decideSupplierOffer({ offers, plan, mandate });
 
-    const reasons = best
-      ? [
-          `${best.offer.title} preserves ${mandate.preserveBookingIds.join(", ")} and arrives by ${best.offer.arrivalTime}.`,
-          `Its ${formatSgd(best.offer.price.minorUnits)} price fits the remaining ${formatSgd(remainingBudget(mandateId))} budget.`,
-          `${scored.length - eligible.length} of ${scored.length} discovered offers were refused by the mandate.`,
-        ]
-      : ["No discovered offer satisfies the mandate; the traveller must widen it."];
+      // V1 ships no AI ranker, so agent.js always takes its deterministic path.
+      // Its fallback wording reports that as a ranker failure, which reads as a
+      // fault rather than the intended design. State the intent instead.
+      const refused = offers.length - 1;
+      decision.reasons = [
+        "No AI ranker is configured in V1, so the deterministic policy selected the safest compliant offer.",
+        ...decision.reasons.filter((reason) => !reason.startsWith("Selected by the safe deterministic fallback")),
+        `${refused} of ${offers.length} discovered offers were refused by the mandate.`,
+      ];
+      res.json({
+        contractVersion: CONTRACT_VERSION,
+        offers: offers.map((offer) => ({ ...offer, expiresAt: null })),
+        decision,
+      });
+    } catch (error) {
+      if (error instanceof NoCompliantOfferError) {
+        return fail(res, 403, "mandate-violation", error.message, {
+          details: { violations: error.violations },
+        });
+      }
+      throw error;
+    }
+  });
 
+  // --- Deliberate fault injection (demo only) -------------------------------
+  router.post("/demo/fault", (req, res) => {
+    const result = setFault(req.body?.mode ?? FAULT_MODES.NONE);
+    if (!result.ok) {
+      return fail(res, 400, "invalid-request", `Unknown fault mode. Allowed: ${result.allowed.join(", ")}.`);
+    }
+    if (result.mode === FAULT_MODES.BUDGET_EXHAUSTED) {
+      // Spend the mandate down so the next purchase must be refused.
+      const left = remainingBudget(DEMO_MANDATE.id) ?? 0;
+      recordSpend(DEMO_MANDATE.id, Math.max(0, left - 100));
+    }
     res.json({
       contractVersion: CONTRACT_VERSION,
-      offers: offers.map((offer) => ({ ...offer, expiresAt: null })),
-      decision: {
-        selectedOfferId: best?.offer.id ?? null,
-        consideredOfferIds: offers.map((offer) => offer.id),
-        reasons,
-        mandateCompliant: Boolean(best),
-        violations: best ? [] : scored.flatMap(({ violations }) => violations),
-      },
+      mode: result.mode,
+      remaining: { currency: "SGD", minorUnits: remainingBudget(DEMO_MANDATE.id) },
     });
+  });
+
+  router.get("/demo/fault", (_req, res) => {
+    res.json({ contractVersion: CONTRACT_VERSION, mode: currentFault(), modes: Object.values(FAULT_MODES) });
   });
 
   // Restores mandate budget and clears executions so the demo can be re-run.
@@ -164,6 +208,7 @@ export function createRouter() {
   router.post("/demo/reset", (_req, res) => {
     resetMandates();
     resetExecutions();
+    clearFault();
     res.json({ contractVersion: CONTRACT_VERSION, reset: true, mandate: DEMO_MANDATE });
   });
 
@@ -182,6 +227,10 @@ export function createRouter() {
     const { supplierId, offerId } = req.params;
     const offer = getOfferForSupplier(supplierId, offerId);
     if (!offer) return fail(res, 404, "not-found", `Offer ${offerId} is unknown for ${supplierId}.`);
+
+    if (shouldFail(FAULT_MODES.SUPPLIER_UNAVAILABLE)) {
+      return fail(res, 503, "supplier-unavailable", `${supplierId} is not responding. No payment was attempted.`);
+    }
 
     const recoveryId = String(req.query.recoveryId || DEMO_RECOVERY_ID);
     const wallets = publicWallets();
@@ -241,6 +290,12 @@ export function createRouter() {
     }
 
     const requirement = getRequirement(execution.requirementId);
+
+    // The client echoes back the requirement it claims to have accepted. It must
+    // match what this supplier actually issued, or the proof is for something else.
+    const mismatch = acceptedMismatch(parsed.accepted, requirement);
+    if (mismatch) return fail(res, 422, "payment-mismatch", mismatch);
+
     const verified = await verifySettlement(execution.transactionHash, {
       amountDrops: requirement.amountDrops,
       destination: requirement.destination,
@@ -366,6 +421,9 @@ export function createRouter() {
 
     let settled;
     try {
+      if (shouldFail(FAULT_MODES.SETTLEMENT_FAIL)) {
+        throw new Error("XRPL settlement returned tecUNFUNDED_PAYMENT (injected fault).");
+      }
       settled = await submitSignedBlob(execution.signedTxBlob, {
         executionId: execution.executionId,
         offerId: offer.id,
