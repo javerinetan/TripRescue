@@ -206,6 +206,15 @@ requests as each gate passes.
 - [ ] Supplier verifies the payment before returning the resource.
 - [ ] Idempotent retry does not pay or deliver twice.
 
+### Agent decision layer
+
+- [x] Only mandate-compliant offers can reach the AI ranker.
+- [x] Invalid, incomplete, or unavailable AI output falls back to the safest
+  compliant offer.
+- [x] No-compliant-offer cases stop with a mandate violation.
+- [ ] Connect a live model ranker after the team confirms an available provider
+  and API key.
+
 ### Gate 4 — End-to-end UI
 
 - [ ] The UI renders domain/API results instead of duplicate hardcoded logic.
