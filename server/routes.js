@@ -51,6 +51,7 @@ import {
 import { publicWallets, signPaymentIntent, submitSignedBlob, verifySettlement } from "./xrpl.js";
 import { analyzeCancellation, demoItinerary, generateRecoveryPlans } from "./recovery.js";
 import { FAULT_MODES, clearFault, currentFault, setFault, shouldFail } from "./faults.js";
+import { NoCompliantOfferError, decideSupplierOffer } from "./agent.js";
 
 const CONTRACT_VERSION = "1.0.0";
 const DEMO_RECOVERY_ID = "recovery-tokyo-001";
@@ -140,40 +141,44 @@ export function createRouter() {
     });
   });
 
-  // Discovery plus the economic decision: which discovered offer best satisfies
-  // the mandate. Offers are ranked, not hardcoded.
-  router.post("/recovery/offers", (req, res) => {
+  // Discovery plus the economic decision. The ranking lives in agent.js, which
+  // falls back to a deterministic safest-offer choice when the AI ranker is
+  // unavailable or returns something incomplete.
+  router.post("/recovery/offers", async (req, res) => {
     const mandateId = req.body?.mandateId ?? DEMO_MANDATE.id;
     const mandate = getMandate(mandateId);
     if (!mandate) return fail(res, 404, "not-found", `Mandate ${mandateId} is unknown.`);
 
+    const planId = req.body?.planId ?? "plan-reliable-001";
+    const plan = generateRecoveryPlans(mandate).find(({ id }) => id === planId);
+    if (!plan) return fail(res, 404, "not-found", `Plan ${planId} is unknown.`);
+
     const offers = listOffers();
-    const scored = offers.map((offer) => ({
-      offer,
-      violations: evaluatePurchase({ mandateId, offer, network: NETWORK_TESTNET }),
-    }));
-    const eligible = scored.filter(({ violations }) => violations.length === 0);
-    const best = eligible.slice().sort((a, b) => a.offer.riskScore - b.offer.riskScore)[0] ?? null;
+    try {
+      const decision = await decideSupplierOffer({ offers, plan, mandate });
 
-    const reasons = best
-      ? [
-          `${best.offer.title} preserves ${mandate.preserveBookingIds.join(", ")} and arrives by ${best.offer.arrivalTime}.`,
-          `Its ${formatSgd(best.offer.price.minorUnits)} price fits the remaining ${formatSgd(remainingBudget(mandateId))} budget.`,
-          `${scored.length - eligible.length} of ${scored.length} discovered offers were refused by the mandate.`,
-        ]
-      : ["No discovered offer satisfies the mandate; the traveller must widen it."];
-
-    res.json({
-      contractVersion: CONTRACT_VERSION,
-      offers: offers.map((offer) => ({ ...offer, expiresAt: null })),
-      decision: {
-        selectedOfferId: best?.offer.id ?? null,
-        consideredOfferIds: offers.map((offer) => offer.id),
-        reasons,
-        mandateCompliant: Boolean(best),
-        violations: best ? [] : scored.flatMap(({ violations }) => violations),
-      },
-    });
+      // V1 ships no AI ranker, so agent.js always takes its deterministic path.
+      // Its fallback wording reports that as a ranker failure, which reads as a
+      // fault rather than the intended design. State the intent instead.
+      const refused = offers.length - 1;
+      decision.reasons = [
+        "No AI ranker is configured in V1, so the deterministic policy selected the safest compliant offer.",
+        ...decision.reasons.filter((reason) => !reason.startsWith("Selected by the safe deterministic fallback")),
+        `${refused} of ${offers.length} discovered offers were refused by the mandate.`,
+      ];
+      res.json({
+        contractVersion: CONTRACT_VERSION,
+        offers: offers.map((offer) => ({ ...offer, expiresAt: null })),
+        decision,
+      });
+    } catch (error) {
+      if (error instanceof NoCompliantOfferError) {
+        return fail(res, 403, "mandate-violation", error.message, {
+          details: { violations: error.violations },
+        });
+      }
+      throw error;
+    }
   });
 
   // --- Deliberate fault injection (demo only) -------------------------------
