@@ -312,9 +312,37 @@ The first unpaid request returns `402 Payment Required`.
 }
 ```
 
-The finalized x402 header names must follow the selected XRPL x402 library or
-specification. Do not invent incompatible headers merely to match this document;
-record the adopted names here before Gate 3 is merged.
+### Adopted x402 wire format (recorded at Gate 3)
+
+The wire format follows the XRPL x402 specification
+(<https://xrpl-x402.t54.ai/docs/xrpl-scheme>), which differs from the placeholder
+values sketched above. The spec wins; these are the adopted names:
+
+| Direction | Header | Contents |
+| --- | --- | --- |
+| Server to client | `PAYMENT-REQUIRED` | base64 JSON payment challenge |
+| Client to server | `PAYMENT-SIGNATURE` | base64 JSON signed payment payload |
+| Server to client | `PAYMENT-RESPONSE` | base64 JSON settlement result |
+
+Inside the challenge, `accepts[]` entries use `scheme: "exact"`, CAIP-2
+`network: "xrpl:1"` for Testnet, `asset: "XRP"`, `payTo`, `amount` in drops,
+`maxTimeoutSeconds`, and `extra.invoiceId` / `extra.sourceTag`. The
+`PAYMENT-SIGNATURE` payload carries `x402Version: 2`, the `accepted`
+requirement, and `payload.signedTxBlob`.
+
+The internal `PaymentRequirement` shape above is retained for the UI and for
+`/api/payments/*`; `server/x402.js` is the single translation point between it
+and the wire format.
+
+**Settlement ordering.** The agent signs the payment intent but does not submit
+it. The supplier submits the signed blob, waits for validation, and independently
+re-verifies destination, amount, `SourceTag` and invoice memo against the ledger
+before releasing the resource. Delivery before settlement is therefore
+structurally impossible, not merely checked.
+
+Two fields differ from the placeholder sketch above and are now authoritative:
+`scheme` is `"exact"` (not `"xrpl-direct"`) and `network` is `"xrpl:1"` (not
+`"xrpl-testnet"`).
 
 ## 5. Prepare payment
 
