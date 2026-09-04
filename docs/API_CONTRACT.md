@@ -111,7 +111,8 @@ interface MandateViolation {
     | "required-booking-lost"
     | "accommodation-rule-violated"
     | "supplier-not-allowed"
-    | "wrong-network";
+    | "wrong-network"
+    | "invalid-offer";
   explanation: string;
 }
 
@@ -124,6 +125,10 @@ interface SupplierOffer {
   expiresAt: string;
   resourcePath: string;
   supportsX402: true;
+  arrivalTime: string;
+  riskScore: number;
+  preservesBookingIds: string[];
+  accommodationType?: "private" | "shared" | "unchanged";
 }
 
 interface DecisionTrace {
