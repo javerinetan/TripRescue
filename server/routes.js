@@ -30,6 +30,7 @@ import {
   recordSpend,
   releaseSpend,
   remainingBudget,
+  resetMandates,
 } from "./mandate.js";
 import {
   bindIdempotencyKey,
@@ -40,6 +41,7 @@ import {
   getRequirement,
   isExpired,
   newId,
+  resetExecutions,
   saveRequirement,
   updateExecution,
 } from "./executions.js";
@@ -76,6 +78,14 @@ export function createRouter() {
         preservesBookingIds: offer.preservesBookingIds,
       })),
     });
+  });
+
+  // Restores mandate budget and clears executions so the demo can be re-run.
+  // Settled XRPL transactions are of course untouched; only local state resets.
+  router.post("/demo/reset", (_req, res) => {
+    resetMandates();
+    resetExecutions();
+    res.json({ contractVersion: CONTRACT_VERSION, reset: true, mandate: DEMO_MANDATE });
   });
 
   router.get("/mandates/:mandateId", (req, res) => {

@@ -62,7 +62,7 @@ async function main() {
       contractVersion: "1.0.0",
       executionId: prepared.body.executionId,
       requirementId: requirement.requirementId,
-      idempotencyKey: `${RECOVERY_ID}:${target.id}`,
+      idempotencyKey: `${RECOVERY_ID}:${target.id}:${prepared.body.executionId}`,
     }),
   });
   if (executed.res.status !== 200) {
@@ -97,7 +97,7 @@ async function main() {
       contractVersion: "1.0.0",
       executionId: prepared.body.executionId,
       requirementId: requirement.requirementId,
-      idempotencyKey: `${RECOVERY_ID}:${target.id}`,
+      idempotencyKey: `${RECOVERY_ID}:${target.id}:${prepared.body.executionId}`,
     }),
   });
   console.log(`   replayed: ${replay.body.replayed === true}`);

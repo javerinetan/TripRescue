@@ -16,5 +16,7 @@ app.get("/api/health", (_req, res) => {
 // Supplier, x402 and payment routes.
 app.use("/api", createRouter());
 
-const port = Number(process.env.PORT ?? 8787);
+// API_PORT wins so an injected PORT (some dev harnesses set it to the web
+// port) cannot make the API collide with Vite.
+const port = Number(process.env.API_PORT ?? process.env.PORT ?? 8787);
 app.listen(port, () => console.log(`trip-rescue api on http://localhost:${port}`));
