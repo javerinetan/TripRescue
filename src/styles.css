@@ -49,8 +49,15 @@
 
 * { box-sizing: border-box; }
 
+html { overflow-anchor: none; }
+
 body {
   margin: 0;
+  /* Scroll anchoring fights us on a view change: the recovery view's plans and
+     interpretation arrive after first paint, and the browser keeps the anchored
+     element in place, pushing the traveller down the page past the alert they
+     just clicked. */
+  overflow-anchor: none;
   background: var(--bg);
   color: var(--text);
   font: 16px/1.6 var(--sans);
@@ -95,7 +102,7 @@ body {
 
 .card h2 {
   margin: 0;
-  font-size: 19px;
+  font-size: 20px;
   font-weight: 500;
   letter-spacing: -0.02em;
 }
@@ -207,16 +214,16 @@ button.ghost:hover:not(:disabled) { background: var(--surface); border-color: va
 .node:last-child .node-body { padding-bottom: 0; }
 
 .node-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
-.node-head strong { font-size: 17px; font-weight: 500; letter-spacing: -0.01em; }
+.node-head strong { font-size: 17px; font-weight: 500; letter-spacing: -0.015em; }
 
 .status-dot { display: none; }
 
 .node-meta {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   flex-wrap: wrap;
-  font: 12px/1.6 var(--mono);
-  color: var(--faint);
+  font: 400 14px/1.6 var(--sans);
+  color: var(--muted);
   margin-top: 6px;
 }
 
@@ -253,14 +260,14 @@ button.ghost:hover:not(:disabled) { background: var(--surface); border-color: va
 }
 
 .plan-cost { margin: 0; font-size: 30px; font-weight: 500; letter-spacing: -0.035em; }
-.plan-arrival, .plan-risk { margin: 4px 0 0; font: 12px/1.6 var(--mono); color: var(--faint); }
+.plan-arrival, .plan-risk { margin: 4px 0 0; font: 400 13px/1.6 var(--sans); color: var(--muted); }
 
 .plan-actions { list-style: none; margin: 16px 0; padding: 0; display: grid; gap: 10px; }
 .plan-actions li { font-size: 13px; line-height: 1.55; color: var(--muted); }
 
 .action-kind {
   display: inline-block;
-  font: 600 10px/1.7 var(--mono);
+  font: 600 10px/1.7 var(--sans);
   text-transform: uppercase;
   letter-spacing: 0.06em;
   border-radius: 4px;
@@ -275,7 +282,7 @@ button.ghost:hover:not(:disabled) { background: var(--surface); border-color: va
 
 .warn-flag {
   margin-left: 7px;
-  font: 600 10px/1 var(--mono);
+  font: 600 10px/1 var(--sans);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--warn);
@@ -321,12 +328,7 @@ button.ghost:hover:not(:disabled) { background: var(--surface); border-color: va
 
 .priority-label { font: 500 16px/1.3 var(--sans); letter-spacing: -0.01em; }
 .priority-summary { font: 400 13px/1.5 var(--sans); color: var(--muted); }
-.priority-rank {
-  font: 400 10px/1.5 var(--mono);
-  color: var(--faint);
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-}
+.priority-rank { font: 400 13px/1.5 var(--sans); color: var(--faint); }
 
 .mandate-summary { margin: 0; font: 15px/1.6 var(--sans); color: var(--muted); }
 .mandate-summary strong { color: var(--text); font-weight: 500; }
@@ -378,7 +380,7 @@ button.ghost:hover:not(:disabled) { background: var(--surface); border-color: va
   color: var(--muted);
   border-radius: 999px;
   padding: 6px 14px;
-  font: 400 12px/1 var(--mono);
+  font: 400 13px/1 var(--sans);
 }
 .chip:hover:not(:disabled) { background: var(--surface); color: var(--text); }
 
@@ -393,12 +395,7 @@ button.ghost:hover:not(:disabled) { background: var(--surface); border-color: va
   gap: 12px;
 }
 .interp-fields > div { background: var(--surface); border-radius: var(--r-sm); padding: 11px 14px; }
-.interp-fields dt {
-  font: 500 10px/1.7 var(--mono);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--faint);
-}
+.interp-fields dt { font: 400 13px/1.6 var(--sans); color: var(--muted); }
 .interp-fields dd { margin: 3px 0 0; font: 500 15px/1.4 var(--sans); color: var(--text); }
 
 .interp-rejected {
@@ -408,7 +405,7 @@ button.ghost:hover:not(:disabled) { background: var(--surface); border-color: va
   border-radius: var(--r-sm);
   background: var(--warn-wash);
 }
-.interp-rejected p { margin: 5px 0 0; font: 13px/1.55 var(--mono); color: var(--muted); }
+.interp-rejected p { margin: 5px 0 0; font: 400 14px/1.55 var(--sans); color: var(--muted); }
 
 /* Monitoring home ----------------------------------------------------- */
 
@@ -445,13 +442,14 @@ button.ghost:hover:not(:disabled) { background: var(--surface); border-color: va
 .trip.alerting { border-color: #f0b6bb; box-shadow: 0 0 0 3px rgba(200, 50, 60, 0.07); }
 
 .trip-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
-.trip-head h2 { font-size: 21px; }
-.trip-dates { margin: 4px 0 0; font: 13px/1.6 var(--mono); color: var(--faint); }
-.trip-meta { margin: 14px 0 0; font: 13px/1.6 var(--mono); color: var(--faint); }
+.trip-head h2 { font-size: 22px; }
+.trip-dates { margin: 5px 0 0; font: 400 14px/1.5 var(--sans); color: var(--muted); }
+.trip-meta { margin: 14px 0 0; font: 400 14px/1.6 var(--sans); color: var(--muted); }
 
 .trip-purpose {
-  margin: 16px 0 0;
+  margin: 18px 0 0;
   font-size: 15px;
+  font-style: italic;
   line-height: 1.6;
   color: var(--muted);
   max-width: 74ch;
@@ -463,10 +461,8 @@ button.ghost:hover:not(:disabled) { background: var(--surface); border-color: va
   display: flex;
   align-items: center;
   gap: 8px;
-  font: 500 11px/1 var(--mono);
-  text-transform: uppercase;
-  letter-spacing: 0.07em;
-  color: var(--faint);
+  font: 400 14px/1 var(--sans);
+  color: var(--muted);
 }
 
 .alert {
@@ -483,10 +479,10 @@ button.ghost:hover:not(:disabled) { background: var(--surface); border-color: va
 }
 
 .alert-head { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
-.alert-head strong { font-size: 18px; font-weight: 500; letter-spacing: -0.01em; }
-.alert-age { font: 12px/1 var(--mono); color: var(--muted); }
+.alert-head strong { font-size: 18px; font-weight: 500; letter-spacing: -0.015em; }
+.alert-age { font: 400 14px/1 var(--sans); color: var(--muted); }
 .alert-detail { margin: 10px 0 0; font-size: 15px; color: var(--text); max-width: 70ch; }
-.alert-source { margin: 8px 0 16px; font: 12px/1 var(--mono); color: var(--muted); }
+.alert-source { margin: 8px 0 18px; font: 400 13px/1 var(--sans); color: var(--faint); }
 
 /* Simulation control -------------------------------------------------- */
 
@@ -533,7 +529,7 @@ button.ghost:hover:not(:disabled) { background: var(--surface); border-color: va
 }
 .claim-item:last-child { border-bottom: 0; }
 .claim-title { font-weight: 500; font-size: 15px; flex: 1; min-width: 160px; }
-.claim-amount { font: 500 15px/1 var(--mono); font-variant-numeric: tabular-nums; }
+.claim-amount { font: 500 15px/1 var(--sans); font-variant-numeric: tabular-nums; }
 .claim-note { flex-basis: 100%; margin: 6px 0 0; font-size: 13.5px; color: var(--muted); line-height: 1.55; }
 
 .claim-disclaimer { margin: 20px 0 0; font-size: 13px; color: var(--faint); max-width: 74ch; }
@@ -688,7 +684,7 @@ button.ghost:hover:not(:disabled) { background: var(--surface); border-color: va
   color: var(--on-ink-dim);
 }
 
-.panel-sub { font: 12px/1 var(--mono); color: var(--on-ink-faint); }
+.panel-sub { font: 400 13px/1.4 var(--sans); color: var(--on-ink-faint); }
 
 .panel .tag.safe { background: rgba(18, 138, 90, 0.22); color: #6ddba6; }
 .panel .tag.at-risk { background: rgba(168, 102, 22, 0.24); color: #e8b467; }
@@ -944,7 +940,7 @@ button.ghost:hover:not(:disabled) { background: var(--surface); border-color: va
 .swap-side strong { font-size: 15px; font-weight: 500; color: var(--text); }
 .swap-side.was strong { color: var(--muted); text-decoration: line-through; }
 .swap-side.was { opacity: 0.75; }
-.swap-side span { font-family: var(--mono); font-size: 12px; }
+.swap-side span { font: 400 13px/1.5 var(--sans); }
 .swap-side.single strong { text-decoration: none; }
 
 .swap-arrow { color: var(--faint); font-size: 18px; }
@@ -960,7 +956,7 @@ button.ghost:hover:not(:disabled) { background: var(--surface); border-color: va
   border-radius: var(--r-md);
 }
 .policy-head { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
-.policy-ref { font: 12px/1.5 var(--mono); color: var(--muted); }
+.policy-ref { font: 400 13px/1.5 var(--sans); color: var(--muted); }
 .policy-maths {
   display: flex;
   gap: 14px;
@@ -976,41 +972,16 @@ button.ghost:hover:not(:disabled) { background: var(--surface); border-color: va
 
 /* Dashboard ----------------------------------------------------------- */
 
-.dash { padding: 24px 28px; }
-
-.dash-head { display: flex; align-items: center; gap: 12px; margin-bottom: 22px; }
-.dash-title {
-  font: 600 12px/1 var(--mono);
-  text-transform: uppercase;
-  letter-spacing: 0.11em;
-  color: var(--muted);
+.dash {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 4px 4px;
 }
-.dash-state {
-  margin-left: auto;
-  font: 500 12px/1 var(--mono);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--faint);
-}
+.dash-title { font: 500 15px/1 var(--sans); color: var(--text); }
+.dash-state { margin-left: auto; font: 400 14px/1 var(--sans); color: var(--muted); }
 .dash-state.alerting { color: var(--bad); }
 
-.stats { display: flex; gap: 40px; flex-wrap: wrap; align-items: flex-end; }
-.stat { display: grid; gap: 4px; }
-.stat-value {
-  font: 500 28px/1 var(--sans);
-  letter-spacing: -0.03em;
-  font-variant-numeric: tabular-nums;
-  color: var(--text);
-}
-.stat-value.bad { color: var(--bad); }
-.stat-label {
-  font: 500 11px/1 var(--mono);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  color: var(--faint);
-}
-.stat.emphasis { margin-left: auto; text-align: right; }
-.stat.emphasis .stat-value { font-size: 32px; }
 
 /* Per-trip exposure --------------------------------------------------- */
 
@@ -1029,10 +1000,10 @@ button.ghost:hover:not(:disabled) { background: var(--surface); border-color: va
 
 .trip-facts {
   display: flex;
-  gap: 18px;
+  gap: 20px;
   flex-wrap: wrap;
-  font: 13px/1.6 var(--mono);
-  color: var(--faint);
+  font: 400 14px/1.6 var(--sans);
+  color: var(--muted);
 }
 .fact-bad { color: var(--bad); }
 
@@ -1185,4 +1156,80 @@ button.ghost:hover:not(:disabled) { background: var(--surface); border-color: va
   .privacy-boundary::before { inset: 0 0 auto; width: auto; height: 3px; }
   .import-provenance { align-items: flex-start; flex-wrap: wrap; }
   .replay-import { margin-left: 44px; }
+}
+
+/* Progressive disclosure ---------------------------------------------- */
+/* Things that are fine collapse. Things that need a decision never do.  */
+
+.node.collapsed .node-body { padding-bottom: 12px; }
+
+.node-toggle,
+.trip-toggle {
+  background: transparent;
+  border: 0;
+  padding: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+  border-radius: var(--r-sm);
+}
+.node-toggle:hover, .trip-toggle:hover { background: transparent; }
+.node-toggle strong { font-size: 17px; font-weight: 500; letter-spacing: -0.015em; color: var(--text); }
+.node-toggle:hover strong, .trip-toggle:hover h2 { color: var(--accent); }
+
+.trip-toggle-main { display: grid; gap: 5px; flex: 1; min-width: 0; }
+.trip-toggle h2 { font-size: 22px; font-weight: 500; letter-spacing: -0.02em; margin: 0; }
+.trip-toggle .trip-dates { margin: 0; }
+
+.chevron.light {
+  margin-left: auto;
+  border-right-color: var(--faint);
+  border-bottom-color: var(--faint);
+  flex: none;
+}
+
+.trip.quiet { padding-bottom: 22px; }
+.trip.quiet .exposure { margin-bottom: 0; }
+
+.cascade-hint {
+  margin: 0 0 18px;
+  font-size: 14px;
+  color: var(--faint);
+}
+
+/* View transition ------------------------------------------------------ */
+/* A change of view is a navigation, so it should read as one arrival      */
+/* rather than the page silently becoming something else.                  */
+
+.flow.enter { animation: viewIn 0.32s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+@keyframes viewIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+
+.crumb {
+  background: transparent;
+  border: 0;
+  padding: 0 0 14px;
+  color: var(--muted);
+  font: 400 14px/1 var(--sans);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+.crumb:hover { background: transparent; color: var(--accent); }
+.crumb-arrow { font-size: 16px; }
+
+.trigger-head { align-items: flex-start; }
+.trigger-trip {
+  margin: 0 0 6px;
+  font: 400 14px/1.4 var(--sans);
+  color: var(--muted);
 }

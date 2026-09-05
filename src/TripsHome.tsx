@@ -37,6 +37,78 @@ function ExposureBar({ exposure }: { exposure: Trip["exposure"] }) {
   );
 }
 
+/**
+ * A trip that is fine collapses to a row. A trip that needs the traveller
+ * stays open. With three trips this is tidier; with a frequent traveller's
+ * twenty it is the only way the screen stays usable.
+ */
+function TripCard({
+  trip,
+  alert,
+  onOpen,
+}: {
+  trip: Trip;
+  alert: Trip["alert"];
+  onOpen: (trip: Trip) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const expanded = Boolean(alert) || open;
+
+  return (
+    <article className={`card trip ${alert ? "alerting" : ""} ${expanded ? "" : "quiet"}`}>
+      {alert ? (
+        <div className="trip-head">
+          <div>
+            <h2>{trip.title}</h2>
+            <p className="trip-dates">{trip.dates}</p>
+          </div>
+          <span className={`tag ${SEVERITY_TAG[alert.severity]}`}>{SEVERITY_LABEL[alert.severity]}</span>
+        </div>
+      ) : (
+        <button className="trip-toggle" onClick={() => setOpen((v) => !v)} aria-expanded={expanded}>
+          <span className="trip-toggle-main">
+            <h2>{trip.title}</h2>
+            <span className="trip-dates">{trip.dates}</span>
+          </span>
+          <span className="watching">
+            <span className="pulse small-pulse" aria-hidden="true" /> monitoring
+          </span>
+          <span className={`chevron light ${expanded ? "open" : ""}`} aria-hidden="true" />
+        </button>
+      )}
+
+      <ExposureBar exposure={alert ? trip.exposure : { broken: 0, atRisk: 0, safe: trip.bookingCount }} />
+
+      {expanded && (
+        <>
+          <div className="trip-facts">
+            <span>{trip.bookingCount} bookings</span>
+            <span>{trip.providerCount} providers</span>
+            <span>{formatSgd(trip.totalCommitted.minorUnits)} committed</span>
+            {alert && trip.valueAtRisk.minorUnits > 0 && (
+              <span className="fact-bad">{formatSgd(trip.valueAtRisk.minorUnits)} at risk</span>
+            )}
+          </div>
+
+          {trip.purpose && <p className="trip-purpose">{trip.purpose}</p>}
+        </>
+      )}
+
+      {alert && (
+        <div className="alert">
+          <div className="alert-head">
+            <strong>{alert.headline}</strong>
+            <span className="alert-age">detected {alert.detectedMinutesAgo} min ago</span>
+          </div>
+          <p className="alert-detail">{alert.detail}</p>
+          <p className="alert-source">via {alert.source}</p>
+          <button onClick={() => onOpen(trip)}>See what this affects</button>
+        </div>
+      )}
+    </article>
+  );
+}
+
 export default function TripsHome({
   trips,
   summary,
@@ -63,8 +135,6 @@ export default function TripsHome({
     return () => clearTimeout(timer);
   }, [activeIncidentId]);
 
-  const atRisk = alertVisible ? summary?.valueAtRisk.minorUnits ?? 0 : 0;
-
   return (
     <>
       <section className="import-provenance" aria-label="Trip import status">
@@ -82,87 +152,27 @@ export default function TripsHome({
         </button>
       </section>
 
-      <section className="card dash">
-        <div className="dash-head">
-          <span className="pulse" aria-hidden="true" />
-          <span className="dash-title">Monitoring</span>
-          <span className={`dash-state ${alertVisible && summary?.alerts ? "alerting" : ""}`}>
-            {alertVisible && summary?.alerts ? `${summary.alerts} alert` : "all clear"}
-          </span>
-        </div>
-
-        {summary && (
-          <div className="stats">
-            <div className="stat">
-              <span className="stat-value">{summary.trips}</span>
-              <span className="stat-label">trips</span>
-            </div>
-            <div className="stat">
-              <span className="stat-value">{summary.bookings}</span>
-              <span className="stat-label">bookings</span>
-            </div>
-            <div className="stat">
-              <span className="stat-value">{summary.providers}</span>
-              <span className="stat-label">providers</span>
-            </div>
-            <div className="stat">
-              <span className="stat-value">{formatSgd(summary.committed.minorUnits)}</span>
-              <span className="stat-label">committed</span>
-            </div>
-            <div className="stat emphasis">
-              <span className={`stat-value ${atRisk > 0 ? "bad" : ""}`}>{formatSgd(atRisk)}</span>
-              <span className="stat-label">at risk now</span>
-            </div>
-          </div>
-        )}
+      <section className="dash">
+        <span className="pulse" aria-hidden="true" />
+        <span className="dash-title">
+          Monitoring {summary?.trips ?? trips.length} trips
+        </span>
+        <span className={`dash-state ${alertVisible && summary?.alerts ? "alerting" : ""}`}>
+          {alertVisible && summary?.alerts
+            ? `${summary.alerts} needs attention`
+            : "all clear"}
+        </span>
       </section>
 
       <div className="trips">
-        {trips.map((trip) => {
-          const alert = trip.alert && alertVisible ? trip.alert : null;
-          return (
-            <article key={trip.id} className={`card trip ${alert ? "alerting" : ""}`}>
-              <div className="trip-head">
-                <div>
-                  <h2>{trip.title}</h2>
-                  <p className="trip-dates">{trip.dates}</p>
-                </div>
-                {alert ? (
-                  <span className={`tag ${SEVERITY_TAG[alert.severity]}`}>{SEVERITY_LABEL[alert.severity]}</span>
-                ) : (
-                  <span className="watching">
-                    <span className="pulse small-pulse" aria-hidden="true" /> monitoring
-                  </span>
-                )}
-              </div>
-
-              <ExposureBar exposure={alert ? trip.exposure : { broken: 0, atRisk: 0, safe: trip.bookingCount }} />
-
-              <div className="trip-facts">
-                <span>{trip.bookingCount} bookings</span>
-                <span>{trip.providerCount} providers</span>
-                <span>{formatSgd(trip.totalCommitted.minorUnits)} committed</span>
-                {alert && trip.valueAtRisk.minorUnits > 0 && (
-                  <span className="fact-bad">{formatSgd(trip.valueAtRisk.minorUnits)} at risk</span>
-                )}
-              </div>
-
-              {trip.purpose && <p className="trip-purpose">{trip.purpose}</p>}
-
-              {alert && (
-                <div className="alert">
-                  <div className="alert-head">
-                    <strong>{alert.headline}</strong>
-                    <span className="alert-age">detected {alert.detectedMinutesAgo} min ago</span>
-                  </div>
-                  <p className="alert-detail">{alert.detail}</p>
-                  <p className="alert-source">via {alert.source}</p>
-                  <button onClick={() => onOpen(trip)}>See what this affects</button>
-                </div>
-              )}
-            </article>
-          );
-        })}
+        {trips.map((trip) => (
+          <TripCard
+            key={trip.id}
+            trip={trip}
+            alert={trip.alert && alertVisible ? trip.alert : null}
+            onOpen={onOpen}
+          />
+        ))}
       </div>
 
       <section className="card sim">

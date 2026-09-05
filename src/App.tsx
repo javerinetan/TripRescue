@@ -56,6 +56,8 @@ export default function App() {
   const [incidents, setIncidents] = useState<IncidentSummary[]>([]);
   const [activeIncidentId, setActiveIncidentId] = useState("flight-cancelled");
   const [headline, setHeadline] = useState<string>("");
+  const [tripTitle, setTripTitle] = useState<string>("");
+  const [tripDates, setTripDates] = useState<string>("");
   const [purpose, setPurpose] = useState<string>("");
 
   const [priorities, setPriorities] = useState<Priority[]>([]);
@@ -126,6 +128,10 @@ export default function App() {
     setError(null);
     // The traveller already told us why they were travelling, at booking time.
     if (trip?.purpose) setPurpose(trip.purpose);
+    if (trip) {
+      setTripTitle(trip.title);
+      setTripDates(trip.dates);
+    }
     try {
       const analysis = await analyzeDisruption();
       setBookings(analysis.bookings);
@@ -162,6 +168,26 @@ export default function App() {
     await loadHome().catch(() => undefined);
   }
 
+  // Both views are long, so a change of view has to start at the top. Without
+  // this the traveller arrives halfway down the cascade with the alert they
+  // just clicked scrolled off the screen.
+  useEffect(() => {
+    // Home leads with the masthead. Recovery is a task, so it lands on the
+    // alert itself rather than making the traveller scroll past a tagline
+    // while something of theirs is broken.
+    const land = () => {
+      if (view === "recovery") {
+        document.querySelector(".flow")?.scrollIntoView({ block: "start", behavior: "auto" });
+      } else {
+        window.scrollTo({ top: 0, behavior: "auto" });
+      }
+    };
+    land();
+    // The recovery view's plans arrive after first paint, so assert it again.
+    const frame = requestAnimationFrame(land);
+    return () => cancelAnimationFrame(frame);
+  }, [view]);
+
   return (
     <main className="shell">
       <header className="masthead">
@@ -172,7 +198,7 @@ export default function App() {
       {error && <div className="card warn"><p>{error}</p></div>}
 
       {view === "home" ? (
-        <div className={`flow ${importComplete ? "" : "import-flow"}`}>
+        <div className={`flow ${importComplete ? "enter" : "import-flow"}`}>
           {importComplete ? (
             <TripsHome
               trips={trips}
@@ -188,11 +214,17 @@ export default function App() {
           )}
         </div>
       ) : (
-        <div className="flow">
+        <div className="flow enter">
           <section className="card trigger">
-            <div className="card-head">
-              <h2>{headline}</h2>
-              <button className="ghost" onClick={backToTrips}>Back to my trips</button>
+            <button className="crumb" onClick={backToTrips}>
+              <span className="crumb-arrow" aria-hidden="true">←</span> My trips
+            </button>
+            <div className="card-head trigger-head">
+              <div>
+                <p className="trigger-trip">{tripTitle}{tripDates && ` · ${tripDates}`}</p>
+                <h2>{headline}</h2>
+              </div>
+              <span className="tag broken">Needs attention</span>
             </div>
             <p className="muted small">
               Trip Rescue detected this and worked out what it affects across every provider.
