@@ -6,7 +6,7 @@
 // The traveller never triggers the disruption. That matters: the product is a
 // monitor, and a demo where you press "cancel my flight" tells the wrong story.
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import RecoveredTrip from "./RecoveredTrip";
 import { buildRecoveredTrip } from "./recoveryOutcome";
 import type { ExecutionReceipt } from "./types";
@@ -28,12 +28,29 @@ import RecoveryPlans from "./RecoveryPlans";
 import PaymentFlow from "./PaymentFlow";
 import ClaimSummary from "./ClaimSummary";
 import TripChanges from "./TripChanges";
+import TripImport from "./TripImport";
+import {
+  clearImportComplete,
+  readImportComplete,
+  saveImportComplete,
+} from "./tripImportState";
 import type { Booking, BookingAssessment, RecoveryPlan } from "./types";
 
 type View = "home" | "recovery";
 
+function sessionStorageOrNull(): Storage | null {
+  try {
+    return window.sessionStorage;
+  } catch {
+    return null;
+  }
+}
+
 export default function App() {
   const [view, setView] = useState<View>("home");
+  const [importComplete, setImportComplete] = useState(() =>
+    typeof window !== "undefined" ? readImportComplete(sessionStorageOrNull()) : false,
+  );
   const [trips, setTrips] = useState<Trip[]>([]);
   const [summary, setSummary] = useState<TripsSummary | null>(null);
   const [incidents, setIncidents] = useState<IncidentSummary[]>([]);
@@ -59,6 +76,16 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [settled, setSettled] = useState(0);
   const [boughtOfferId, setBoughtOfferId] = useState<string | undefined>(undefined);
+
+  const completeImport = useCallback(() => {
+    saveImportComplete(sessionStorageOrNull());
+    setImportComplete(true);
+  }, []);
+
+  const replayImport = useCallback(() => {
+    clearImportComplete(sessionStorageOrNull());
+    setImportComplete(false);
+  }, []);
 
   async function loadHome() {
     const data = await fetchTrips();
@@ -171,15 +198,20 @@ export default function App() {
       {error && <div className="card warn"><p>{error}</p></div>}
 
       {view === "home" ? (
-        <div className="flow enter">
-          <TripsHome
-            trips={trips}
-            summary={summary}
-            incidents={incidents}
-            activeIncidentId={activeIncidentId}
-            onOpen={openRecovery}
-            onSwitchIncident={switchIncident}
-          />
+        <div className={`flow ${importComplete ? "enter" : "import-flow"}`}>
+          {importComplete ? (
+            <TripsHome
+              trips={trips}
+              summary={summary}
+              incidents={incidents}
+              activeIncidentId={activeIncidentId}
+              onOpen={openRecovery}
+              onSwitchIncident={switchIncident}
+              onReplayImport={replayImport}
+            />
+          ) : (
+            <TripImport onComplete={completeImport} />
+          )}
         </div>
       ) : (
         <div className="flow enter">
