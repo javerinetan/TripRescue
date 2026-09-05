@@ -4,7 +4,7 @@
 
 Travel providers understand their booking. Trip Rescue understands your trip.
 
-**Team Peanutss** — Javerine Tan · Min Xie
+**Team Peaunts** — Javerine Tan · Min Xie
 SingHacks 2026, Ripple Challenge: AI-native business on XRPL with x402.
 
 ---
@@ -302,5 +302,5 @@ The hook is installed project-scoped in `.claude/settings.json` and
 `.codex/hooks.json`. Each teammate runs this once after cloning:
 
 ```bash
-TEAM_NAME="Peanutss" HACKER_NAME="<your name>" node hook/setup.mjs --non-interactive
+TEAM_NAME="Peaunts" HACKER_NAME="<your name>" node hook/setup.mjs --non-interactive
 ```
