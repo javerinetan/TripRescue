@@ -8,6 +8,8 @@ export interface Money {
 export interface SupplierOffer {
   id: string;
   supplierId: string;
+  /** The company on the confirmation. Absent on older fixtures. */
+  supplierName?: string;
   title: string;
   description: string;
   price: Money;

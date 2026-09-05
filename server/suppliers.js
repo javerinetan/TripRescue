@@ -29,6 +29,7 @@ const OFFERS = [
   {
     id: "offer-protected-transfer-001",
     supplierId: "supplier-protected-transfer",
+    supplierName: "Kanto Protected Coach",
     category: "transfer",
     tier: "protected",
     title: "Protected Narita to Hakone transfer",
@@ -41,6 +42,7 @@ const OFFERS = [
   {
     id: "offer-express-rail-003",
     supplierId: "supplier-express-rail",
+    supplierName: "JR East Narita Express",
     category: "transfer",
     tier: "express",
     title: "Narita Express plus local rail to Hakone",
@@ -53,6 +55,7 @@ const OFFERS = [
   {
     id: "offer-flex-transfer-002",
     supplierId: "supplier-flex-transfer",
+    supplierName: "Odakyu Flex Shuttle",
     category: "transfer",
     tier: "budget",
     title: "Flexible Narita to Hakone shuttle",
@@ -67,6 +70,7 @@ const OFFERS = [
   {
     id: "offer-compact-rental-201",
     supplierId: "supplier-hakone-compact",
+    supplierName: "Hakone Drive",
     category: "rental",
     tier: "protected",
     title: "Compact car, guaranteed 08:30 pickup",
@@ -79,6 +83,7 @@ const OFFERS = [
   {
     id: "offer-premium-rental-202",
     supplierId: "supplier-hakone-premium",
+    supplierName: "Fuji Premium Rentals",
     category: "rental",
     tier: "express",
     title: "Premium SUV, 08:00 pickup",
@@ -91,6 +96,7 @@ const OFFERS = [
   {
     id: "offer-shared-rental-203",
     supplierId: "supplier-hakone-carshare",
+    supplierName: "Machi Car Share",
     category: "rental",
     tier: "budget",
     title: "Car-share pickup from town, 10:30",
@@ -105,6 +111,7 @@ const OFFERS = [
   {
     id: "offer-guided-fuji-101",
     supplierId: "supplier-fuji-guided",
+    supplierName: "Fuji Five Lakes Tours",
     category: "activity",
     tier: "protected",
     title: "Guided Fuji five-lakes tour, 09:30",
@@ -117,6 +124,7 @@ const OFFERS = [
   {
     id: "offer-smallgroup-fuji-102",
     supplierId: "supplier-fuji-smallgroup",
+    supplierName: "Ascent Small Group",
     category: "activity",
     tier: "express",
     title: "Small-group Fuji ascent, 08:30",
@@ -129,6 +137,7 @@ const OFFERS = [
   {
     id: "offer-shuttle-fuji-103",
     supplierId: "supplier-fuji-shuttle",
+    supplierName: "Fuji Shuttle Direct",
     category: "activity",
     tier: "budget",
     title: "Self-guided shuttle to Fuji, 14:30",

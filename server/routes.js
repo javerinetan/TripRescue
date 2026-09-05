@@ -180,6 +180,7 @@ export function createRouter({
       suppliers: listOffers(getIncident(activeIncidentId).supplierCategory).map((offer) => ({
         id: offer.id,
         supplierId: offer.supplierId,
+        supplierName: offer.supplierName,
         title: offer.title,
         description: offer.description,
         price: offer.price,

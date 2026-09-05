@@ -335,8 +335,8 @@ export default function PaymentFlow({
         <div className="voucher-slot">
           <BookingVoucher
             receipt={receipt}
-            supplier={bought.title}
-            service={bought.description}
+            supplier={bought.supplierName ?? bought.supplierId}
+            service={bought.title}
             price={bought.price}
             travellerName="Javerine Tan"
           />
