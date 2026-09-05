@@ -18,6 +18,8 @@ const B = "Calibri";
 
 const W = 13.33;
 const M = 0.7;
+const conciseSlideNumbers = new Set([1, 3, 5, 8, 9, 11]);
+let originalSlideNumber = 0;
 
 const pres = new pptxgen();
 pres.layout = "LAYOUT_WIDE";
@@ -26,6 +28,16 @@ pres.title = "Trip Rescue";
 
 // ---------- helpers ----------
 
+const omittedSlide = new Proxy({}, {
+  get: () => () => omittedSlide,
+  set: () => true,
+});
+
+function nextSlide() {
+  originalSlideNumber += 1;
+  return conciseSlideNumbers.has(originalSlideNumber) ? pres.addSlide() : omittedSlide;
+}
+
 function dot(slide, x, y, color, size = 0.17) {
   slide.addShape(pres.ShapeType.ellipse, {
     x, y, w: size, h: size, fill: { color },
@@ -33,13 +45,13 @@ function dot(slide, x, y, color, size = 0.17) {
 }
 
 function darkSlide() {
-  const s = pres.addSlide();
+  const s = nextSlide();
   s.background = { color: INK };
   return s;
 }
 
 function lightSlide(title, kicker) {
-  const s = pres.addSlide();
+  const s = nextSlide();
   s.background = { color: PAPER };
   if (kicker) {
     s.addText(kicker.toUpperCase(), {
@@ -687,17 +699,17 @@ function card(slide, x, y, w, h, fill = SURFACE) {
     });
   });
 
-  card(s, M, 5.62, 11.93, 1.25);
-  s.addText("Why an insurer cares", {
+  card(s, M, 5.62, 11.93, 1.25, INK);
+  s.addText("Next: one minute live", {
     x: M + 0.4, y: 5.8, w: 4.0, h: 0.32,
-    fontFace: B, fontSize: 14, bold: true, color: TEXT, isTextBox: true, margin: 0,
+    fontFace: B, fontSize: 14, bold: true, color: AGENT, isTextBox: true, margin: 0,
   });
-  s.addText("A claim reimburses a loss after the trip is ruined. Trip Rescue spends a fraction of that to stop the loss happening — and the traveller keeps the holiday they paid for.", {
+  s.addText("Watch the agent reconsider a cheaper strategy, meet an unknown supplier, settle on XRPL Testnet, and return a booking confirmation.", {
     x: M + 0.4, y: 6.12, w: 11.1, h: 0.6,
-    fontFace: B, fontSize: 13.5, color: MUTED, isTextBox: true, margin: 0,
+    fontFace: B, fontSize: 13.5, color: ICE, isTextBox: true, margin: 0,
   });
 
-  s.addNotes("B2C alone is weak because disruption is infrequent. The stronger route is B2B2C. Insurers pay claims, card issuers compete on travel benefits, OTAs lose customers to a ruined trip.");
+  s.addNotes("Rescue Pass costs ten to twenty dollars per trip. The stronger route is B2B2C through insurers, card issuers and travel platforms. Now we will show the full recovery in one minute.");
 }
 
 // ---------- 12. Close ----------
@@ -755,4 +767,6 @@ function card(slide, x, y, w, h, fill = SURFACE) {
   s.addNotes("Close on the north star. Remove the agent, or remove autonomous payment, and this product stops working. That is the test the challenge sets.");
 }
 
-pres.writeFile({ fileName: "docs/TripRescue-pitch.pptx" }).then(() => console.log("wrote docs/TripRescue-pitch.pptx"));
+pres.writeFile({ fileName: "docs/TripRescue-pitch.pptx" }).then(() =>
+  console.log("wrote six-slide docs/TripRescue-pitch.pptx"),
+);

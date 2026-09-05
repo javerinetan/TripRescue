@@ -30,7 +30,7 @@ Use `http://localhost:5173`. Before presenting, confirm that no older Vite proce
 ## Final submission checklist
 
 - [x] Public README includes setup, architecture, safeguards, and Testnet transactions.
-- [x] Twelve-slide 16:9 PowerPoint deck exists at `docs/TripRescue-pitch.pptx`.
+- [x] Six-slide 16:9 pitch deck exists at `docs/TripRescue-pitch.pptx`; the original 12-slide deck is retained as `docs/TripRescue-pitch-full.pptx`.
 - [x] Short description is ready above.
 - [x] Team name is `Peanutss` everywhere in the project and local feedback configuration.
 - [x] `npm run check` passes with 93 tests.
