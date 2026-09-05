@@ -1289,3 +1289,83 @@ button.crumb:hover:not(:disabled) { background: transparent; color: var(--accent
   min-width: 200px;
 }
 .explorer.light { color: var(--accent); }
+
+/* Booking confirmation ------------------------------------------------- */
+/* The traveller's artifact, not the agent's, so it sits on white inside   */
+/* the dark panel and reads like something you would hand to a desk.       */
+
+.voucher-slot { padding: 2px; }
+
+.voucher {
+  background: var(--bg);
+  color: var(--text);
+  border-radius: var(--r-md);
+  padding: 26px 28px;
+}
+
+.voucher-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  padding-bottom: 20px;
+  border-bottom: 1px dashed var(--line-strong);
+}
+.voucher-kicker {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.voucher h2 {
+  margin: 8px 0 0;
+  font-size: 30px;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  font-family: var(--mono);
+}
+
+.voucher-body {
+  margin: 22px 0 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  gap: 18px 32px;
+}
+.voucher-body div { display: grid; gap: 4px; }
+.voucher-body dt {
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.voucher-body dd { margin: 0; font-size: 15px; font-weight: 500; }
+.voucher-ok { color: var(--good); }
+
+.voucher-note { margin: 22px 0 0; font-size: 14px; color: var(--muted); line-height: 1.6; }
+
+.voucher-proof {
+  margin-top: 22px;
+  padding-top: 20px;
+  border-top: 1px dashed var(--line-strong);
+  display: grid;
+  gap: 8px;
+  justify-items: start;
+}
+.voucher-proof code {
+  font: 12px/1.6 var(--mono);
+  color: var(--muted);
+  word-break: break-all;
+}
+.voucher-fineprint { margin: 6px 0 0; font-size: 12.5px; color: var(--faint); max-width: 62ch; }
+
+@media print {
+  body { background: #fff; }
+  .shell > *:not(.flow), .masthead, .card, .agent-zone > *:not(.voucher-slot) { display: none !important; }
+  .agent-zone { background: none; padding: 0; }
+  .voucher { border: 1px solid #000; padding: 24px; }
+  .no-print { display: none !important; }
+}

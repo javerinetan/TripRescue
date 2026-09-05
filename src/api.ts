@@ -179,6 +179,16 @@ export async function resetDemo(): Promise<void> {
  * times look wrong to anyone outside JST.
  */
 export function formatLocalTime(iso: string): string {
+  // A UTC timestamp has no wall clock to preserve, so render it in the reader's
+  // own zone. Slicing the last six characters off a Z-suffixed string produced
+  // times like "06:56 0.707Z".
+  if (/Z$/.test(iso)) {
+    const at = new Date(iso);
+    return Number.isNaN(at.getTime())
+      ? iso
+      : at.toLocaleString([], { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+  }
+
   const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(iso);
   if (!match) return iso;
   const [, , month, day, hour, minute] = match;

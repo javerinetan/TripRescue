@@ -23,6 +23,7 @@ import {
 import { FAULT_MODES, setFault } from "./api";
 import type { FaultMode, OfferDecision, WireExchange } from "./api";
 import WireInspector from "./WireInspector";
+import BookingVoucher from "./BookingVoucher";
 import type { ExecutionReceipt, JourneyStep, RescueMandate, SupplierOffer, TransactionPreview } from "./types";
 
 const STEPS: { id: string; label: string }[] = [
@@ -53,6 +54,7 @@ export default function PaymentFlow({
   const [preview, setPreview] = useState<TransactionPreview | null>(null);
   const [receipt, setReceipt] = useState<ExecutionReceipt | null>(null);
   const [wire, setWire] = useState<WireExchange[]>([]);
+  const [bought, setBought] = useState<SupplierOffer | null>(null);
   const [logs, setLogs] = useState<Log[]>([]);
   const [busy, setBusy] = useState(false);
   const [elapsed, setElapsed] = useState(0);
@@ -155,6 +157,7 @@ export default function PaymentFlow({
         idempotencyKey,
       );
       setReceipt(delivered.receipt);
+      setBought(offer);
       setWire((prev) => [...prev, ...delivered.wire]);
       setStep("settle", "done", delivered.receipt.transactionHash?.slice(0, 12));
       setStep("deliver", "done", delivered.receipt.deliveredResource?.reference);
@@ -315,6 +318,18 @@ export default function PaymentFlow({
             </div>
           )}
         </section>
+      )}
+
+      {receipt?.deliveredResource && bought && (
+        <div className="voucher-slot">
+          <BookingVoucher
+            receipt={receipt}
+            supplier={bought.title}
+            service={bought.description}
+            price={bought.price}
+            travellerName="Javerine Tan"
+          />
+        </div>
       )}
 
       {logs.length > 0 && (
