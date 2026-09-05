@@ -6,6 +6,7 @@
 // reason, and the raw x402 exchange is inspectable.
 
 import { useEffect, useRef, useState } from "react";
+import { buildRecoveryIdempotencyKey } from "./recoveryOutcome";
 import {
   ApiFailure,
   MANDATE_ID,
@@ -13,7 +14,6 @@ import {
   challengeResource,
   claimResource,
   discoverSuppliers,
-  executePayment,
   fetchMandate,
   fetchOfferDecision,
   formatLocalTime,
@@ -37,9 +37,11 @@ type Log = { id: number; kind: "info" | "decision" | "refusal" | "money" | "erro
 
 export default function PaymentFlow({
   planId,
+  onDelivered,
   onComplete,
 }: {
   planId: string;
+  onDelivered?: (receipt: ExecutionReceipt) => void;
   onComplete?: (offerId: string) => void;
 }) {
   const started = useRef(false);
@@ -107,7 +109,7 @@ export default function PaymentFlow({
       setStep("discover", "running");
       const discovered = await discoverSuppliers();
       setOffers(discovered);
-      const ranked = await fetchOfferDecision();
+      const ranked = await fetchOfferDecision(planId);
       setDecision(ranked.decision);
       setStep("discover", "done", `${discovered.length} found`);
       log("info", `Discovered ${discovered.length} suppliers the agent was not provisioned with.`);
@@ -130,7 +132,7 @@ export default function PaymentFlow({
       );
 
       setStep("authorize", "running");
-      const prepared = await preparePayment(challenged.requirement.requirementId);
+      const prepared = await preparePayment(challenged.requirement.requirementId, planId, ranked.decisionId);
       setPreview(prepared.preview);
       setStep("authorize", "done", "within mandate");
       log(
@@ -139,26 +141,24 @@ export default function PaymentFlow({
           `${formatSgd(prepared.budget.authorized.minorUnits)}.`,
       );
 
+      const idempotencyKey = buildRecoveryIdempotencyKey({
+        recoveryId: RECOVERY_ID,
+        planId,
+        offerId: offer.id,
+      });
       setStep("settle", "running");
-      const executed = await executePayment(
-        prepared.executionId,
-        `${RECOVERY_ID}:${offer.id}:${prepared.executionId}`,
-      );
-      setReceipt(executed.receipt);
-      setRemaining((prev) => (prev === null ? prev : prev - offer.price.minorUnits));
-      setStep("settle", "done", executed.receipt.transactionHash?.slice(0, 12));
-      log("money", `Settled ${formatSgd(offer.price.minorUnits)} on XRPL Testnet. ${executed.remainingLabel} remaining.`);
-
       setStep("deliver", "running");
       const delivered = await claimResource(
         offer,
         prepared.executionId,
-        challenged.accepted,
-        executed.receipt.transactionHash!,
+        prepared.paymentSignature,
+        idempotencyKey,
       );
       setReceipt(delivered.receipt);
       setWire((prev) => [...prev, ...delivered.wire]);
+      setStep("settle", "done", delivered.receipt.transactionHash?.slice(0, 12));
       setStep("deliver", "done", delivered.receipt.deliveredResource?.reference);
+      if (delivered.receipt.status === "delivered") onDelivered?.(delivered.receipt);
       log("info", `Supplier verified the receipt on-ledger and released ${delivered.receipt.deliveredResource?.reference}.`);
 
       const fresh = await fetchMandate();
@@ -180,6 +180,8 @@ export default function PaymentFlow({
   const spent = remaining === null ? 0 : authorised - remaining;
   const spentPct = authorised === 0 ? 0 : Math.min(100, (spent / authorised) * 100);
   const allowed = new Set(mandate?.allowedSupplierIds ?? []);
+  const rejectedById = new Map((decision?.rejectedOffers ?? []).map((entry) => [entry.offerId, entry.violations]));
+  const refusedCount = decision?.rejectedOffers?.length ?? 0;
 
   return (
     <div className="agent-zone">
@@ -239,21 +241,26 @@ export default function PaymentFlow({
             <span className="panel-title">Discovered at runtime</span>
             {decision && (
               <span className="panel-sub">
-                {decision.consideredOfferIds.length - (decision.selectedOfferId ? 1 : 0)} refused by the mandate
+                {refusedCount} rejected by policy · {decision.rankedOfferIds?.length ?? 0} eligible to rank
               </span>
             )}
           </div>
           <ul className="offer-list">
             {offers.map((offer) => {
-              const ok = allowed.has(offer.supplierId);
+              const violations = rejectedById.get(offer.id) ?? [];
+              const rejected = violations.length > 0;
+              const ranked = decision?.rankedOfferIds?.includes(offer.id) ?? false;
               const chosen = decision?.selectedOfferId === offer.id;
+              const ok = !rejected && (ranked || chosen);
               return (
-                <li key={offer.id} className={`offer ${ok ? "" : "refused"} ${chosen ? "chosen" : ""}`}>
-                  <span className="offer-mark">{chosen ? "✓" : ok ? "·" : "✕"}</span>
+                <li key={offer.id} className={`offer ${rejected ? "refused" : ""} ${chosen ? "chosen" : ""}`}>
+                  <span className="offer-mark">{chosen ? "✓" : rejected ? "✕" : "·"}</span>
                   <span className="offer-name">{offer.supplierId}</span>
                   <span className="offer-price">{formatSgd(offer.price.minorUnits)}</span>
                   <span className="offer-risk">risk {offer.riskScore}</span>
-                  <span className="offer-verdict">{chosen ? "selected" : ok ? "eligible" : "not on allow-list"}</span>
+                  <span className="offer-verdict">
+                    {chosen ? "selected" : rejected ? violations.map((item) => item.code).join(", ") : ok ? "eligible" : "not selected"}
+                  </span>
                 </li>
               );
             })}

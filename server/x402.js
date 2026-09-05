@@ -97,3 +97,9 @@ export function parsePaymentSignature(headerValue) {
 export function buildPaymentSignature({ accepted, signedTxBlob }) {
   return { x402Version: X402_VERSION, accepted, payload: { signedTxBlob } };
 }
+
+/** Compare the complete accepted wire entry issued by this supplier. */
+export function acceptedRequirementsMatch(candidate, trusted) {
+  if (!candidate || !trusted) return false;
+  return JSON.stringify(candidate) === JSON.stringify(trusted);
+}

@@ -4,14 +4,15 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "concurrently -n api,web -c cyan,magenta \"node --watch server/index.js\" \"vite\"",
+    "dev": "node ./node_modules/concurrently/dist/bin/concurrently.js -n api,web -c cyan,magenta \"node --watch server/index.js\" \"node ./node_modules/vite/bin/vite.js\"",
     "start": "node server/index.js",
-    "build": "vite build",
-    "check": "tsc --noEmit && node --test server/*.test.js",
+    "build": "node ./node_modules/vite/bin/vite.js build",
+    "check": "node ./node_modules/typescript/bin/tsc --noEmit && node --test server/*.test.js src/*.test.js",
     "wallet:setup": "node scripts/setup-wallets.js",
     "demo:x402": "node scripts/demo-x402.js"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.124.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.2",
     "express": "^5.1.0",

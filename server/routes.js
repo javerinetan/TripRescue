@@ -18,7 +18,9 @@ import {
   HEADER_RESPONSE,
   HEADER_SIGNATURE,
   NETWORK_TESTNET,
+  acceptedRequirementsMatch,
   buildPaymentRequirements,
+  buildPaymentSignature,
   encodeHeader,
   invoiceIdFor,
   parsePaymentSignature,
@@ -43,9 +45,11 @@ import {
   fingerprint,
   getExecution,
   getRequirement,
+  getDecision,
   isExpired,
   newId,
   resetExecutions,
+  saveDecision,
   saveRequirement,
   updateExecution,
 } from "./executions.js";
@@ -54,6 +58,7 @@ import { analyzeCancellation, demoItinerary, generateRecoveryPlans } from "./rec
 import { FAULT_MODES, clearFault, currentFault, setFault, shouldFail } from "./faults.js";
 import { NoCompliantOfferError, decideSupplierOffer } from "./agent.js";
 import { DEFAULT_PRIORITY, getPriority, listPriorities, rankerFor } from "./priorities.js";
+import { createModelRanker } from "./model-ranker.js";
 import { describeProposal, interpretRequest, llmConfigured } from "./interpret.js";
 import { DEFAULT_INCIDENT, TRIPS, getIncident, listIncidents, plansForIncident, policyFor } from "./scenarios.js";
 import { summariseChanges } from "./changes.js";
@@ -61,6 +66,7 @@ import { assessClaim } from "./claims.js";
 
 const CONTRACT_VERSION = "1.0.0";
 const DEMO_RECOVERY_ID = "recovery-tokyo-001";
+const modelRanker = createModelRanker();
 
 // Which incident is currently surfaced. Trip Rescue is a monitor, so the
 // disruption arrives rather than being chosen mid-flow; this is the demo's way
@@ -90,8 +96,80 @@ function fail(res, status, code, message, extra = {}) {
   });
 }
 
-export function createRouter() {
+export function createRouter({
+  publicWallets: getPublicWallets = publicWallets,
+  signPaymentIntent: signIntent = signPaymentIntent,
+  submitSignedBlob: submitBlob = submitSignedBlob,
+  verifySettlement: verifyPayment = verifySettlement,
+  ranker: injectedRanker = undefined,
+} = {}) {
   const router = Router();
+  const settlements = new Map();
+  const ranker = injectedRanker ?? modelRanker;
+  const getWallets = getPublicWallets;
+
+  async function settleExecution(execution, idempotencyKey) {
+    const key = idempotencyKey || execution.executionId;
+    const claim = claimIdempotencyKey(key, execution.fingerprint);
+    if (claim.status === "conflict") {
+      return { error: [409, "execution-conflict", "This idempotency key was already used with different parameters."] };
+    }
+    const target = claim.status === "replay" ? claim.execution : execution;
+    if (claim.status === "new") bindIdempotencyKey(key, target.executionId);
+    if (["settled", "delivered"].includes(target.status)) return { execution: target, replayed: true };
+    if (target.status === "failed") return { error: target.settlementError, replayed: true };
+
+    const active = settlements.get(target.executionId);
+    if (active) return { ...(await active), replayed: true };
+    const operation = (async () => {
+      const requirement = getRequirement(target.requirementId);
+      if (!requirement) return { error: [404, "not-found", "Payment requirement is unknown."] };
+      if (isExpired(requirement)) {
+        const error = [410, "requirement-expired", "The payment requirement expired before execution."];
+        updateExecution(target.executionId, { status: "failed", settlementError: error });
+        return { error };
+      }
+      const offer = getOffer(target.offerId);
+      const violations = evaluatePurchase({ mandateId: target.mandateId, offer, network: NETWORK_TESTNET });
+      if (violations.length) {
+        const error = [403, "mandate-violation", violations[0].explanation, { details: { violations } }];
+        updateExecution(target.executionId, { status: "failed", settlementError: error });
+        return { error };
+      }
+      recordSpend(target.mandateId, offer.price.minorUnits);
+      let submitted;
+      try {
+        if (shouldFail(FAULT_MODES.SETTLEMENT_FAIL)) throw new Error("XRPL settlement returned tecUNFUNDED_PAYMENT (injected fault).");
+        submitted = await submitBlob(target.signedTxBlob, { executionId: target.executionId, offerId: offer.id, invoiceId: requirement.memo });
+      } catch (error) {
+        releaseSpend(target.mandateId, offer.price.minorUnits);
+        const settlementError = [502, "settlement-failed", error.message];
+        updateExecution(target.executionId, { status: "failed", settlementError });
+        return { error: settlementError };
+      }
+      const verified = await verifyPayment(submitted.hash, {
+        amountDrops: requirement.amountDrops,
+        destination: requirement.destination,
+        invoiceId: requirement.memo,
+      }).catch((error) => ({ ok: false, reason: error.message }));
+      if (!verified.ok) {
+        const error = [422, "payment-mismatch", verified.reason];
+        updateExecution(target.executionId, { status: "failed", settlementError: error });
+        return { error };
+      }
+      const receipt = {
+        executionId: target.executionId,
+        planId: target.planId,
+        offerId: target.offerId,
+        status: "settled",
+        transactionHash: verified.hash,
+        explorerUrl: verified.explorerUrl,
+      };
+      return { execution: updateExecution(target.executionId, { status: "settled", transactionHash: verified.hash, receipt }), offer };
+    })();
+    settlements.set(target.executionId, operation);
+    try { return await operation; } finally { settlements.delete(target.executionId); }
+  }
 
   // --- Runtime service discovery -------------------------------------------
   // The registry the agent reads to learn which suppliers exist at all.
@@ -240,6 +318,7 @@ export function createRouter() {
       contractVersion: CONTRACT_VERSION,
       source: result.source,
       model: result.model ?? null,
+      modelAttempt: result.modelAttempt ?? null,
       llmConfigured: llmConfigured(),
       proposal: result.proposal,
       preview: describeProposal(result.proposal),
@@ -326,21 +405,42 @@ export function createRouter() {
     if (!mandate) return fail(res, 404, "not-found", `Mandate ${mandateId} is unknown.`);
 
     const plans = plansForIncident(activeIncidentId, mandate);
-    const plan = plans.find(({ id }) => id === req.body?.planId) ?? plans[0];
-    if (!plan) return fail(res, 404, "not-found", "No plan is available for this incident.");
+    const plan = plans.find(({ id }) => id === req.body?.planId);
+    if (!plan) return fail(res, 404, "not-found", `Plan ${req.body?.planId} is unknown for this incident.`);
 
-    const offers = listOffers(getIncident(activeIncidentId).supplierCategory);
+    const incident = getIncident(activeIncidentId);
+    const offers = listOffers(incident.supplierCategory);
     try {
-      const ranker = rankerFor(mandate.priority ?? DEFAULT_PRIORITY);
-      const decision = await decideSupplierOffer({ offers, plan, mandate, ranker });
+      const priority = getPriority(mandate.priority ?? DEFAULT_PRIORITY);
+      const decision = await decideSupplierOffer({
+        offers,
+        plan,
+        mandate,
+        priority,
+        ranker: ranker ?? rankerFor(mandate.priority ?? DEFAULT_PRIORITY),
+      });
+      const decisionId = newId("decision");
+      saveDecision({
+        decisionId,
+        recoveryId: DEMO_RECOVERY_ID,
+        incidentId: incident.id,
+        supplierCategory: incident.supplierCategory,
+        mandateId,
+        planId: plan.id,
+        selectedOfferId: decision.selectedOfferId,
+        rankedOfferIds: decision.rankedOfferIds ?? [decision.selectedOfferId],
+        decision,
+        expiresAt: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
+      });
 
-      const refused = offers.length - 1;
+      const refused = decision.rejectedOffers?.length ?? offers.length - 1;
       decision.reasons.push(
         `${refused} of ${offers.length} discovered offers were refused by the mandate.`,
       );
       res.json({
         contractVersion: CONTRACT_VERSION,
         offers: offers.map((offer) => ({ ...offer, expiresAt: null })),
+        decisionId,
         decision,
       });
     } catch (error) {
@@ -406,7 +506,7 @@ export function createRouter() {
     }
 
     const recoveryId = String(req.query.recoveryId || DEMO_RECOVERY_ID);
-    const wallets = publicWallets();
+    const wallets = getWallets();
     if (!wallets.configured) {
       return fail(res, 502, "settlement-failed", "Supplier wallet is not configured. Run npm run wallet:setup.");
     }
@@ -425,9 +525,12 @@ export function createRouter() {
       const contractRequirement = toContractRequirement(requirements, { requirementId });
       saveRequirement({
         ...contractRequirement,
+        accepted: requirements.accepts[0],
         offerId: offer.id,
         supplierId: offer.supplierId,
         recoveryId,
+        incidentId: activeIncidentId,
+        supplierCategory: getIncident(activeIncidentId).supplierCategory,
         priceMinorUnits: offer.price.minorUnits,
       });
 
@@ -443,7 +546,7 @@ export function createRouter() {
       });
     }
 
-    // Payment proof presented: verify on-ledger before releasing anything.
+    // Payment proof presented: the supplier owns settlement and delivery.
     const parsed = parsePaymentSignature(signatureHeader);
     if (!parsed.ok) return fail(res, 400, "invalid-request", parsed.reason);
 
@@ -453,68 +556,61 @@ export function createRouter() {
     if (execution.offerId !== offer.id) {
       return fail(res, 422, "payment-mismatch", "This execution paid for a different offer.");
     }
-    if (execution.status === "delivered") {
-      // Idempotent re-delivery: same hold, no second payment.
-      res.set(HEADER_RESPONSE, encodeHeader({ settled: true, transactionHash: execution.transactionHash }));
-      return res.json({ contractVersion: CONTRACT_VERSION, receipt: execution.receipt });
-    }
-    if (execution.status !== "settled") {
-      return fail(res, 402, "payment-required", "This execution has not settled yet.");
-    }
-
     const requirement = getRequirement(execution.requirementId);
+    if (!requirement || !acceptedRequirementsMatch(parsed.accepted, requirement.accepted)
+      || parsed.signedTxBlob !== execution.signedTxBlob) {
+      return fail(res, 422, "payment-mismatch", "The payment signature does not match the prepared execution.");
+    }
 
-    // The client echoes back the requirement it claims to have accepted. It must
-    // match what this supplier actually issued, or the proof is for something else.
-    const mismatch = acceptedMismatch(parsed.accepted, requirement);
-    if (mismatch) return fail(res, 422, "payment-mismatch", mismatch);
-
-    const verified = await verifySettlement(execution.transactionHash, {
-      amountDrops: requirement.amountDrops,
-      destination: requirement.destination,
-      invoiceId: requirement.memo,
-    }).catch((error) => ({ ok: false, reason: error.message }));
-
-    if (!verified.ok) return fail(res, 422, "payment-mismatch", verified.reason);
-
+    const settled = await settleExecution(execution, req.get("Idempotency-Key") || execution.executionId);
+    if (settled.error) return fail(res, ...settled.error);
+    const current = settled.execution;
+    if (current.status === "delivered") {
+      res.set(HEADER_RESPONSE, encodeHeader({ settled: true, transactionHash: current.transactionHash }));
+      return res.json({ contractVersion: CONTRACT_VERSION, receipt: current.receipt, replayed: true });
+    }
     const receipt = {
-      executionId: execution.executionId,
-      planId: execution.planId,
-      offerId: offer.id,
+      ...current.receipt,
       status: "delivered",
-      transactionHash: verified.hash,
-      explorerUrl: verified.explorerUrl,
       deliveredResource: buildReservationHold(offer),
     };
-    updateExecution(execution.executionId, { status: "delivered", receipt });
-
-    res.set(HEADER_RESPONSE, encodeHeader({ settled: true, transactionHash: verified.hash }));
-    return res.json({ contractVersion: CONTRACT_VERSION, receipt });
+    updateExecution(current.executionId, { status: "delivered", receipt });
+    res.set(HEADER_RESPONSE, encodeHeader({ settled: true, transactionHash: current.transactionHash }));
+    return res.json({ contractVersion: CONTRACT_VERSION, receipt, replayed: settled.replayed || undefined });
   });
 
   // --- Prepare payment ------------------------------------------------------
   router.post("/payments/prepare", async (req, res) => {
-    const { requirementId, planId = "plan-reliable-001", mandateId = DEMO_MANDATE.id } = req.body ?? {};
+    const { requirementId, planId, decisionId, mandateId = DEMO_MANDATE.id } = req.body ?? {};
     const requirement = getRequirement(requirementId);
     if (!requirement) return fail(res, 404, "not-found", `Requirement ${requirementId} is unknown.`);
-    if (isExpired(requirement)) {
-      return fail(res, 410, "requirement-expired", "This payment requirement has expired. Request the resource again.");
+    if (isExpired(requirement)) return fail(res, 410, "requirement-expired", "This payment requirement has expired. Request the resource again.");
+
+    const mandate = getMandate(mandateId);
+    if (!mandate) return fail(res, 404, "not-found", `Mandate ${mandateId} is unknown.`);
+    const decision = getDecision(decisionId);
+    const incident = getIncident(requirement.incidentId ?? activeIncidentId);
+    if (!decision) return fail(res, 404, "not-found", "The supplier decision is unknown. Discover offers again.");
+    if (isExpired(decision)) return fail(res, 410, "requirement-expired", "The supplier decision expired. Discover offers again.");
+    if (decision.recoveryId !== requirement.recoveryId || decision.incidentId !== incident.id
+      || decision.mandateId !== mandateId || decision.planId !== planId) {
+      return fail(res, 422, "payment-mismatch", "The decision does not match this payment requirement.");
     }
 
-    const offer = getOffer(requirement.offerId);
-    // Server-side truth wins over anything the client sent.
-    const violations = evaluatePurchase({ mandateId, offer, network: NETWORK_TESTNET });
-    if (violations.length > 0) {
-      return fail(res, 403, "mandate-violation", violations[0].explanation, { details: { violations } });
+    const plan = plansForIncident(incident.id, mandate).find(({ id }) => id === planId);
+    if (!plan) return fail(res, 404, "not-found", `Plan ${planId} is unknown for this incident.`);
+    if (!plan.mandateCompliant) return fail(res, 403, "mandate-violation", plan.violations[0]?.explanation ?? "The plan is outside the mandate.", { details: { violations: plan.violations } });
+
+    const offer = getOfferForSupplier(requirement.supplierId, requirement.offerId);
+    if (!offer || decision.selectedOfferId !== offer.id || decision.supplierCategory !== incident.supplierCategory) {
+      return fail(res, 422, "payment-mismatch", "The challenged offer is not the guarded decision for this incident.");
     }
+    const violations = evaluatePurchase({ mandateId, offer, network: NETWORK_TESTNET });
+    if (violations.length > 0) return fail(res, 403, "mandate-violation", violations[0].explanation, { details: { violations } });
 
     let intent;
     try {
-      intent = await signPaymentIntent({
-        amountDrops: requirement.amountDrops,
-        destination: requirement.destination,
-        invoiceId: requirement.memo,
-      });
+      intent = await signIntent({ amountDrops: requirement.amountDrops, destination: requirement.destination, invoiceId: requirement.memo });
     } catch (error) {
       return fail(res, 502, "settlement-failed", error.message);
     }
@@ -522,6 +618,8 @@ export function createRouter() {
     const executionId = newId("execution");
     createExecution({
       executionId,
+      recoveryId: requirement.recoveryId,
+      incidentId: incident.id,
       planId,
       mandateId,
       offerId: offer.id,
@@ -529,30 +627,19 @@ export function createRouter() {
       signedTxBlob: intent.signedTxBlob,
       expectedHash: intent.hash,
       status: "pending-payment",
-      fingerprint: fingerprint({
-        requirementId,
-        offerId: offer.id,
-        amountDrops: requirement.amountDrops,
-        destination: requirement.destination,
-      }),
+      fingerprint: fingerprint({ recoveryId: requirement.recoveryId, incidentId: incident.id, planId, mandateId, offerId: offer.id, amountDrops: requirement.amountDrops, destination: requirement.destination }),
     });
 
-    // Note: signedTxBlob and seeds are deliberately not in this response.
     res.json({
       contractVersion: CONTRACT_VERSION,
       executionId,
       planId,
       offerId: offer.id,
       mandateId,
+      paymentSignature: encodeHeader(buildPaymentSignature({ accepted: requirement.accepted, signedTxBlob: intent.signedTxBlob })),
       preview: intent.preview,
       offer: { title: offer.title, price: offer.price, supplierId: offer.supplierId },
-      budget: {
-        authorized: getMandate(mandateId).maximumAdditionalSpend,
-        remainingAfter: {
-          currency: "SGD",
-          minorUnits: remainingBudget(mandateId) - offer.price.minorUnits,
-        },
-      },
+      budget: { authorized: mandate.maximumAdditionalSpend, remainingAfter: { currency: "SGD", minorUnits: remainingBudget(mandateId) - offer.price.minorUnits } },
     });
   });
 
@@ -561,73 +648,16 @@ export function createRouter() {
     const { executionId, idempotencyKey } = req.body ?? {};
     const execution = getExecution(executionId);
     if (!execution) return fail(res, 404, "not-found", `Execution ${executionId} is unknown.`);
-
-    const key = idempotencyKey || execution.executionId;
-    const claim = claimIdempotencyKey(key, execution.fingerprint);
-    if (claim.status === "conflict") {
-      return fail(res, 409, "execution-conflict", "This idempotency key was already used with different parameters.");
-    }
-    if (claim.status === "replay" && claim.execution.receipt) {
-      return res.json({ contractVersion: CONTRACT_VERSION, receipt: claim.execution.receipt, replayed: true });
-    }
-    if (execution.status === "settled" || execution.status === "delivered") {
-      return res.json({ contractVersion: CONTRACT_VERSION, receipt: execution.receipt, replayed: true });
-    }
-    bindIdempotencyKey(key, execution.executionId);
-
-    const requirement = getRequirement(execution.requirementId);
-    if (isExpired(requirement)) {
-      updateExecution(execution.executionId, { status: "failed" });
-      return fail(res, 410, "requirement-expired", "The payment requirement expired before execution.");
-    }
-
-    const offer = getOffer(execution.offerId);
-    // Re-check the mandate immediately before money moves.
-    const violations = evaluatePurchase({ mandateId: execution.mandateId, offer, network: NETWORK_TESTNET });
-    if (violations.length > 0) {
-      updateExecution(execution.executionId, { status: "failed" });
-      return fail(res, 403, "mandate-violation", violations[0].explanation, { details: { violations } });
-    }
-
-    // Reserve budget before submitting so a concurrent execution cannot double spend.
-    recordSpend(execution.mandateId, offer.price.minorUnits);
-
-    let settled;
-    try {
-      if (shouldFail(FAULT_MODES.SETTLEMENT_FAIL)) {
-        throw new Error("XRPL settlement returned tecUNFUNDED_PAYMENT (injected fault).");
-      }
-      settled = await submitSignedBlob(execution.signedTxBlob, {
-        executionId: execution.executionId,
-        offerId: offer.id,
-        invoiceId: requirement.memo,
-      });
-    } catch (error) {
-      releaseSpend(execution.mandateId, offer.price.minorUnits);
-      updateExecution(execution.executionId, { status: "failed" });
-      return fail(res, 502, "settlement-failed", error.message);
-    }
-
-    const receipt = {
-      executionId: execution.executionId,
-      planId: execution.planId,
-      offerId: offer.id,
-      status: "settled",
-      transactionHash: settled.hash,
-      explorerUrl: settled.explorerUrl,
-    };
-    updateExecution(execution.executionId, {
-      status: "settled",
-      transactionHash: settled.hash,
-      receipt,
-    });
-
+    const settled = await settleExecution(execution, idempotencyKey);
+    if (settled.error) return fail(res, ...settled.error);
+    const canonical = settled.execution;
     res.json({
       contractVersion: CONTRACT_VERSION,
-      receipt,
-      spent: offer.price,
-      remaining: { currency: "SGD", minorUnits: remainingBudget(execution.mandateId) },
-      remainingLabel: formatSgd(remainingBudget(execution.mandateId)),
+      receipt: canonical.receipt,
+      spent: { currency: "SGD", minorUnits: getOffer(canonical.offerId).price.minorUnits },
+      remaining: { currency: "SGD", minorUnits: remainingBudget(canonical.mandateId) },
+      remainingLabel: formatSgd(remainingBudget(canonical.mandateId)),
+      replayed: settled.replayed || undefined,
     });
   });
 
