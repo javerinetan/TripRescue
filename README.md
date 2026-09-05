@@ -359,8 +359,14 @@ through a runtime registry, so the agent discovers them rather than being wired
 to them — but they are not real inventory, and the reservation hold is not a real
 booking.
 
-**Out of scope for V1.** Real supplier integration, email itinerary ingestion,
-disruption types beyond flight cancellation, initial trip planning, and Mainnet.
+**Simulated ingestion.** The one-click import uses sample confirmations and never
+accesses an inbox. It demonstrates the intended privacy boundary: production
+would retain structured booking fields, disconnect from email after import, and
+monitor provider feeds thereafter.
+
+**Out of scope for V1.** Real supplier integration, live email-provider OAuth
+and parsing, disruption types beyond flight cancellation, initial trip planning,
+and Mainnet.
 
 ## Builder feedback
 

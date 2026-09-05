@@ -16,7 +16,7 @@
 - Create: `src/tripImportState.test.js`
 - Create: `src/tripImportState.ts`
 
-- [ ] **Step 1: Write the failing state tests**
+- [x] **Step 1: Write the failing state tests**
 
 ```js
 import test from "node:test";
@@ -63,13 +63,13 @@ test("storage restrictions never block import or replay", () => {
 });
 ```
 
-- [ ] **Step 2: Run the test and verify RED**
+- [x] **Step 2: Run the test and verify RED**
 
 Run: `node --test src/tripImportState.test.js`
 
 Expected: FAIL with `ERR_MODULE_NOT_FOUND` for `tripImportState.ts`.
 
-- [ ] **Step 3: Implement the minimal state model**
+- [x] **Step 3: Implement the minimal state model**
 
 ```ts
 export const IMPORT_SESSION_KEY = "trip-rescue:import-complete";
@@ -111,13 +111,13 @@ export function clearImportComplete(storage: Pick<Storage, "removeItem"> | null)
 }
 ```
 
-- [ ] **Step 4: Run the focused test and verify GREEN**
+- [x] **Step 4: Run the focused test and verify GREEN**
 
 Run: `node --test src/tripImportState.test.js`
 
 Expected: 3 tests pass, 0 fail.
 
-- [ ] **Step 5: Commit the state model**
+- [x] **Step 5: Commit the state model**
 
 ```bash
 git add src/tripImportState.ts src/tripImportState.test.js
@@ -130,7 +130,7 @@ git commit -m "test: define trip import state machine"
 - Create: `src/TripImport.tsx`
 - Modify: `src/App.tsx`
 
-- [ ] **Step 1: Create the onboarding component against the tested state API**
+- [x] **Step 1: Create the onboarding component against the tested state API**
 
 ```tsx
 import { useEffect, useState } from "react";
@@ -183,7 +183,7 @@ export default function TripImport({ onComplete }: { onComplete: () => void }) {
 }
 ```
 
-- [ ] **Step 2: Gate the dashboard in `App.tsx`**
+- [x] **Step 2: Gate the dashboard in `App.tsx`**
 
 Import `useCallback`, `TripImport`, and the storage helpers. Initialize completion with a guarded browser read:
 
@@ -205,13 +205,13 @@ const replayImport = useCallback(() => {
 
 Render `TripImport` when `view === "home" && !importComplete`; otherwise render `TripsHome`. Pass `onReplayImport={replayImport}` to `TripsHome`.
 
-- [ ] **Step 3: Run typechecking and state tests**
+- [x] **Step 3: Run typechecking and state tests**
 
 Run: `node ./node_modules/typescript/bin/tsc --noEmit && node --test src/tripImportState.test.js`
 
 Expected: TypeScript succeeds and 3 tests pass.
 
-- [ ] **Step 4: Commit onboarding behavior**
+- [x] **Step 4: Commit onboarding behavior**
 
 ```bash
 git add src/App.tsx src/TripImport.tsx
@@ -224,7 +224,7 @@ git commit -m "feat: add one-click itinerary import"
 - Modify: `src/TripsHome.tsx`
 - Modify: `src/styles.css`
 
-- [ ] **Step 1: Add provenance and replay to `TripsHome`**
+- [x] **Step 1: Add provenance and replay to `TripsHome`**
 
 Add `onReplayImport: () => void` to the props. Before the monitoring card render:
 
@@ -239,7 +239,7 @@ Add `onReplayImport: () => void` to the props. Before the monitoring card render
 </section>
 ```
 
-- [ ] **Step 2: Add the Ripple-aligned visual treatment**
+- [x] **Step 2: Add the Ripple-aligned visual treatment**
 
 Add focused styles to `src/styles.css`:
 
@@ -288,13 +288,13 @@ Add focused styles to `src/styles.css`:
 
 Blend these declarations into existing responsive and reduced-motion sections rather than duplicating media queries.
 
-- [ ] **Step 3: Run the full automated suite**
+- [x] **Step 3: Run the full automated suite**
 
 Run: `npm run check`
 
 Expected: 83 tests pass, 0 fail.
 
-- [ ] **Step 4: Commit the completed interface**
+- [x] **Step 4: Commit the completed interface**
 
 ```bash
 git add src/TripsHome.tsx src/styles.css
@@ -307,7 +307,7 @@ git commit -m "feat: show import provenance and replay"
 - Modify: `README.md`
 - Modify: `docs/superpowers/plans/2026-09-05-one-click-trip-import.md`
 
-- [ ] **Step 1: Correct the scope statement in `README.md`**
+- [x] **Step 1: Correct the scope statement in `README.md`**
 
 Replace “email itinerary ingestion” in the V1 out-of-scope paragraph with “live email-provider OAuth and parsing,” and add:
 
@@ -318,13 +318,13 @@ would retain structured booking fields, disconnect from email after import, and
 monitor provider feeds thereafter.
 ```
 
-- [ ] **Step 2: Run final checks**
+- [x] **Step 2: Run final checks**
 
 Run: `npm run check && npm run build`
 
 Expected: 83 tests pass, 0 fail; Vite production build succeeds.
 
-- [ ] **Step 3: Perform browser QA at desktop and mobile widths**
+- [x] **Step 3: Perform browser QA at desktop and mobile widths**
 
 Verify:
 
@@ -337,16 +337,24 @@ Verify:
 - At 390 px width, no horizontal overflow or clipped controls appear.
 - Browser console contains no application errors or React warnings.
 
-- [ ] **Step 4: Commit documentation and verification notes**
+- [x] **Step 4: Commit documentation and verification notes**
 
 ```bash
 git add README.md docs/superpowers/plans/2026-09-05-one-click-trip-import.md
 git commit -m "docs: explain simulated itinerary ingestion"
 ```
 
-- [ ] **Step 5: Push the feature branch and open a PR**
+- [x] **Step 5: Push the feature branch and open a PR**
 
 ```bash
 git push -u origin feature/one-click-trip-import
 gh pr create --base main --head feature/one-click-trip-import --title "Add privacy-first one-click trip import demo" --body "Adds a transparent simulated itinerary import, session persistence, dashboard provenance, and replay. No inbox is accessed. Verified by the full test suite, production build, and desktop/mobile browser QA."
 ```
+
+## Verification result
+
+- `npm run check`: 83 tests passed, 0 failed.
+- `npm run build`: production build completed successfully with 43 transformed modules.
+- Desktop QA: disclosure, stage progression, dashboard reveal, refresh persistence, and replay passed.
+- Mobile QA at 390 × 844: no horizontal overflow (`scrollWidth` matched `innerWidth`).
+- Browser console: no application errors or warnings.
