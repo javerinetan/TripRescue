@@ -741,3 +741,42 @@ button.ghost:hover:not(:disabled) { color: var(--ink); border-color: var(--ink-f
 }
 .no-viable strong { display: block; font-size: 15px; margin-bottom: 5px; }
 .no-viable p { margin: 0; font-size: 13px; color: var(--ink-dim); max-width: 72ch; }
+
+/* Folded panels and compact summaries --------------------------------- */
+
+.panel-head.bare { padding: 0; }
+.panel-head.bare .panel-title { margin-right: 10px; }
+
+.small-btn { padding: 6px 12px; font-size: 12px; }
+
+.mandate-summary {
+  margin: 0;
+  font: 14px/1.5 var(--sans);
+  color: var(--ink-dim);
+}
+.mandate-summary strong { color: var(--ink); font-size: 15px; }
+
+.demo-controls { border-style: dashed; }
+.demo-body { margin-top: 14px; display: grid; gap: 12px; justify-items: start; }
+.demo-body .fault { margin: 0; }
+
+/* Claim summary ------------------------------------------------------- */
+
+.claim-items { list-style: none; margin: 14px 0 0; padding: 0; }
+.claim-item {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--human-line);
+  flex-wrap: wrap;
+}
+.claim-item:last-child { border-bottom: 0; }
+.claim-title { font-weight: 600; font-size: 14px; flex: 1; min-width: 150px; }
+.claim-amount { font: 600 14px/1 var(--mono); font-variant-numeric: tabular-nums; }
+.claim-note { flex-basis: 100%; margin: 4px 0 0; font-size: 12.5px; color: var(--ink-dim); line-height: 1.5; }
+
+.claim-totals { display: flex; gap: 26px; flex-wrap: wrap; margin-bottom: 4px; }
+.claim-totals div { display: grid; gap: 2px; }
+.claim-totals strong { font-size: 21px; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.claim-disclaimer { margin: 16px 0 0; font-size: 12px; font-style: italic; color: var(--ink-faint); max-width: 74ch; }

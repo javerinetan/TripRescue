@@ -328,3 +328,24 @@ export async function setActiveIncident(incidentId: string): Promise<void> {
     body: JSON.stringify({ contractVersion: "1.0.0", incidentId }),
   });
 }
+
+export interface ClaimItem {
+  bookingId: string;
+  title: string;
+  provider: string;
+  amount: Money;
+  route: "claimable" | "refund" | "at-risk";
+  headline: string;
+  note: string;
+}
+
+export interface ClaimSummary {
+  items: ClaimItem[];
+  totals: { claimable: Money; refund: Money; atRisk: Money };
+  disclaimer: string;
+}
+
+export async function fetchClaim(): Promise<ClaimSummary> {
+  const { data } = await call<never>("/api/recovery/claim");
+  return data as never;
+}
