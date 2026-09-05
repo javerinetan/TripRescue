@@ -46,3 +46,26 @@
   `mainnet` / `testnet` / `devnet` and WebSocket URLs. We shipped a bug where the domain
   layer said `xrpl-testnet` and the payment layer said `xrpl:1`. A single canonical
   mapping table would prevent it.
+
+## Gaps that only appear once an agent is really spending money
+
+- **No portable receipt binding a payment to what it bought.** We built a feature
+  that hands an insurer proof of an additional expense incurred during a
+  disruption, and the only artifact XRPL offers is a transaction hash. Resolving
+  it yields drops, two r-addresses, a SourceTag and a hex memo. An insurer cannot
+  read that. A canonical receipt document referencing the hash, with ledger
+  index, validated amount, decoded memo and a human-readable description, plus a
+  documented way to verify it against a public node, would make on-chain
+  settlement useful to the non-crypto counterparties who actually audit spend.
+- **No way to total an agent's spend from the ledger.** Reconciling spend against
+  a budget should be the ledger's job, since it is the tamper-evident record.
+  There is no filter on `account_tx` for SourceTag, memo type or destination, so
+  the only route is paginating raw transactions and filtering client-side. We
+  tracked spend in application memory instead, which is exactly the wrong source
+  of truth for a spending mandate.
+- **x402 specifies payment but not discovery.** The protocol defines the 402
+  challenge and the payment proof, but nothing about how an agent finds
+  402-payable resources in the first place. We designed our own registry shape
+  and it will not interoperate with anyone else's. A minimal companion spec — a
+  well-known catalog path and a resource descriptor advertising accepted schemes
+  and networks — would stop every team inventing an incompatible one.

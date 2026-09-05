@@ -291,11 +291,24 @@ export interface TripAlert {
   detectedMinutesAgo: number;
 }
 
+export interface TripExposure { broken: number; atRisk: number; safe: number }
+
+export interface TripsSummary {
+  trips: number;
+  bookings: number;
+  providers: number;
+  committed: Money;
+  valueAtRisk: Money;
+  alerts: number;
+}
+
 export interface Trip {
   id: string;
   title: string;
   dates: string;
   purpose?: string;
+  exposure: TripExposure;
+  valueAtRisk: Money;
   bookingCount: number;
   providerCount: number;
   totalCommitted: Money;
@@ -314,6 +327,7 @@ export interface IncidentSummary {
 
 export async function fetchTrips(): Promise<{
   trips: Trip[];
+  summary: TripsSummary;
   incidents: IncidentSummary[];
   activeIncidentId: string;
 }> {

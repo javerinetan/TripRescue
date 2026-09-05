@@ -1,13 +1,16 @@
-// The monitoring home.
+// The monitoring dashboard.
 //
-// Trip Rescue is the free Trip Guardian tier made visible: your trips sit here
-// being watched, and most of the time nothing happens. The product only speaks
-// up when a booking breaks. The traveller never triggers the disruption — it
-// arrives, which is why the alert animates in rather than appearing on a click.
+// This is the free Trip Guardian tier made visible: your trips sit here being
+// watched, and most of the time nothing happens. Two jobs, in order — tell the
+// traveller at a glance whether anything is wrong and how much money is behind
+// it, then let them act on the one thing that is.
+//
+// The traveller never triggers the disruption. It arrives, which is why the
+// alert animates in rather than appearing on a click.
 
 import { useEffect, useState } from "react";
 import { formatSgd } from "./api";
-import type { IncidentSummary, Trip } from "./api";
+import type { IncidentSummary, Trip, TripsSummary } from "./api";
 
 const SEVERITY_LABEL: Record<string, string> = {
   critical: "Critical",
@@ -21,14 +24,29 @@ const SEVERITY_TAG: Record<string, string> = {
   moderate: "at-risk",
 };
 
+/** Proportional bar of a trip's bookings by status. */
+function ExposureBar({ exposure }: { exposure: Trip["exposure"] }) {
+  const total = exposure.broken + exposure.atRisk + exposure.safe || 1;
+  const seg = (n: number) => `${(n / total) * 100}%`;
+  return (
+    <div className="exposure" role="img" aria-label={`${exposure.broken} broken, ${exposure.atRisk} at risk, ${exposure.safe} unaffected`}>
+      {exposure.broken > 0 && <span className="seg broken" style={{ width: seg(exposure.broken) }} />}
+      {exposure.atRisk > 0 && <span className="seg at-risk" style={{ width: seg(exposure.atRisk) }} />}
+      {exposure.safe > 0 && <span className="seg safe" style={{ width: seg(exposure.safe) }} />}
+    </div>
+  );
+}
+
 export default function TripsHome({
   trips,
+  summary,
   incidents,
   activeIncidentId,
   onOpen,
   onSwitchIncident,
 }: {
   trips: Trip[];
+  summary: TripsSummary | null;
   incidents: IncidentSummary[];
   activeIncidentId: string;
   onOpen: (trip: Trip) => void;
@@ -43,18 +61,43 @@ export default function TripsHome({
     return () => clearTimeout(timer);
   }, [activeIncidentId]);
 
+  const atRisk = alertVisible ? summary?.valueAtRisk.minorUnits ?? 0 : 0;
+
   return (
     <>
-      <section className="card monitor-bar">
-        <span className="pulse" aria-hidden="true" />
-        <div>
-          <strong>Monitoring {trips.length} trips</strong>
-          <p className="muted small">
-            Watching {trips.reduce((n, t) => n + t.bookingCount, 0)} bookings across{" "}
-            {trips.reduce((n, t) => n + t.providerCount, 0)} providers for disruption.
-          </p>
+      <section className="card dash">
+        <div className="dash-head">
+          <span className="pulse" aria-hidden="true" />
+          <span className="dash-title">Monitoring</span>
+          <span className={`dash-state ${alertVisible && summary?.alerts ? "alerting" : ""}`}>
+            {alertVisible && summary?.alerts ? `${summary.alerts} alert` : "all clear"}
+          </span>
         </div>
-        <span className="monitor-state">{alertVisible ? "1 alert" : "all clear"}</span>
+
+        {summary && (
+          <div className="stats">
+            <div className="stat">
+              <span className="stat-value">{summary.trips}</span>
+              <span className="stat-label">trips</span>
+            </div>
+            <div className="stat">
+              <span className="stat-value">{summary.bookings}</span>
+              <span className="stat-label">bookings</span>
+            </div>
+            <div className="stat">
+              <span className="stat-value">{summary.providers}</span>
+              <span className="stat-label">providers</span>
+            </div>
+            <div className="stat">
+              <span className="stat-value">{formatSgd(summary.committed.minorUnits)}</span>
+              <span className="stat-label">committed</span>
+            </div>
+            <div className="stat emphasis">
+              <span className={`stat-value ${atRisk > 0 ? "bad" : ""}`}>{formatSgd(atRisk)}</span>
+              <span className="stat-label">at risk now</span>
+            </div>
+          </div>
+        )}
       </section>
 
       <div className="trips">
@@ -70,16 +113,24 @@ export default function TripsHome({
                 {alert ? (
                   <span className={`tag ${SEVERITY_TAG[alert.severity]}`}>{SEVERITY_LABEL[alert.severity]}</span>
                 ) : (
-                  <span className="watching"><span className="pulse small-pulse" aria-hidden="true" /> monitoring</span>
+                  <span className="watching">
+                    <span className="pulse small-pulse" aria-hidden="true" /> monitoring
+                  </span>
                 )}
               </div>
 
-              {trip.purpose && <p className="trip-purpose">“{trip.purpose}”</p>}
+              <ExposureBar exposure={alert ? trip.exposure : { broken: 0, atRisk: 0, safe: trip.bookingCount }} />
 
-              <p className="trip-meta">
-                {trip.bookingCount} bookings · {trip.providerCount} providers ·{" "}
-                {formatSgd(trip.totalCommitted.minorUnits)} committed
-              </p>
+              <div className="trip-facts">
+                <span>{trip.bookingCount} bookings</span>
+                <span>{trip.providerCount} providers</span>
+                <span>{formatSgd(trip.totalCommitted.minorUnits)} committed</span>
+                {alert && trip.valueAtRisk.minorUnits > 0 && (
+                  <span className="fact-bad">{formatSgd(trip.valueAtRisk.minorUnits)} at risk</span>
+                )}
+              </div>
+
+              {trip.purpose && <p className="trip-purpose">{trip.purpose}</p>}
 
               {alert && (
                 <div className="alert">

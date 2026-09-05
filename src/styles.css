@@ -874,3 +874,65 @@ button.ghost:hover:not(:disabled) { background: var(--surface); border-color: va
 .policy-payout { font-weight: 500; color: var(--good); font-size: 16px; }
 
 .claim-next { margin: 16px 0 0; font-size: 13.5px; color: var(--muted); line-height: 1.6; max-width: 76ch; }
+
+/* Dashboard ----------------------------------------------------------- */
+
+.dash { padding: 24px 28px; }
+
+.dash-head { display: flex; align-items: center; gap: 12px; margin-bottom: 22px; }
+.dash-title {
+  font: 600 12px/1 var(--mono);
+  text-transform: uppercase;
+  letter-spacing: 0.11em;
+  color: var(--muted);
+}
+.dash-state {
+  margin-left: auto;
+  font: 500 12px/1 var(--mono);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--faint);
+}
+.dash-state.alerting { color: var(--bad); }
+
+.stats { display: flex; gap: 40px; flex-wrap: wrap; align-items: flex-end; }
+.stat { display: grid; gap: 4px; }
+.stat-value {
+  font: 500 28px/1 var(--sans);
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+.stat-value.bad { color: var(--bad); }
+.stat-label {
+  font: 500 11px/1 var(--mono);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--faint);
+}
+.stat.emphasis { margin-left: auto; text-align: right; }
+.stat.emphasis .stat-value { font-size: 32px; }
+
+/* Per-trip exposure --------------------------------------------------- */
+
+.exposure {
+  display: flex;
+  gap: 3px;
+  height: 6px;
+  margin: 16px 0 12px;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.seg { display: block; border-radius: 3px; transition: width 0.4s ease; }
+.seg.broken { background: var(--bad); }
+.seg.at-risk { background: var(--warn); }
+.seg.safe { background: #cfe3d8; }
+
+.trip-facts {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  font: 13px/1.6 var(--mono);
+  color: var(--faint);
+}
+.fact-bad { color: var(--bad); }

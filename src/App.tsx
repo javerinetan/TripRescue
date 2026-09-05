@@ -16,7 +16,7 @@ import {
   resetDemo,
   setActiveIncident,
 } from "./api";
-import type { IncidentSummary, Priority, Trip } from "./api";
+import type { IncidentSummary, Priority, Trip, TripsSummary } from "./api";
 import TripsHome from "./TripsHome";
 import IntentInput from "./IntentInput";
 import PrioritySelector from "./PrioritySelector";
@@ -32,6 +32,7 @@ type View = "home" | "recovery";
 export default function App() {
   const [view, setView] = useState<View>("home");
   const [trips, setTrips] = useState<Trip[]>([]);
+  const [summary, setSummary] = useState<TripsSummary | null>(null);
   const [incidents, setIncidents] = useState<IncidentSummary[]>([]);
   const [activeIncidentId, setActiveIncidentId] = useState("flight-cancelled");
   const [headline, setHeadline] = useState<string>("");
@@ -56,6 +57,7 @@ export default function App() {
   async function loadHome() {
     const data = await fetchTrips();
     setTrips(data.trips);
+    setSummary(data.summary);
     setIncidents(data.incidents);
     setActiveIncidentId(data.activeIncidentId);
   }
@@ -136,6 +138,7 @@ export default function App() {
         <div className="flow">
           <TripsHome
             trips={trips}
+            summary={summary}
             incidents={incidents}
             activeIncidentId={activeIncidentId}
             onOpen={openRecovery}

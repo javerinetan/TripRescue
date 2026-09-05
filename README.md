@@ -89,6 +89,16 @@ Same cancellation, three different agent decisions, three different suppliers
 paid. The priority sets the budget, the supplier allow-list and the ranking; it
 can never relax a safety check.
 
+### The journey
+
+**1. Monitoring.** The dashboard watches every trip and stays quiet. It shows
+what is committed across all of them and what is exposed right now, so the
+traveller can read the situation without opening anything. The disruption
+arrives; the traveller never triggers it.
+
+**2. The cascade.** The agent traverses the trip's dependency graph and
+classifies every booking, including the ones it deliberately leaves alone.
+
 The agent then:
 
 1. Traverses the **trip dependency graph** and classifies every booking.
@@ -104,6 +114,24 @@ The agent then:
 
 The traveller makes one strategic decision. The agent does the operational and
 economic work inside explicit limits.
+
+**5. What changed.** After settlement the traveller sees the specifics, not a
+success message: which booking went, what replaced it, from which provider, at
+what price against the plan estimate, and what was kept or released.
+
+```
+REPLACED  Narita to Hakone airport bus · Hakone Express · S$42
+       →  Narita Express plus local rail · supplier-express-rail · S$61
+KEPT      hotel, rental car, Fuji activity — each with why
+```
+
+**6. What is still claimable.** Recovery is not free. The remaining losses are
+split into what the insurer likely covers, what the provider owes directly, and
+what is not lost yet — with the trip's actual policy applied (gross loss, less
+excess, expected payout). Filing takes days of paperwork, which is the contrast:
+the agent fixed the trip in seconds. Trip Rescue can assemble the claim with the
+cancellation notices and the on-chain receipt attached; **automatic filing is
+not built.**
 
 ## Architecture
 

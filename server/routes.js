@@ -158,11 +158,30 @@ export function createRouter() {
 
   router.get("/trips", (_req, res) => {
     const incident = getIncident(activeIncidentId);
-    res.json({
-      contractVersion: CONTRACT_VERSION,
-      trips: TRIPS.map((trip) => ({
+
+    // Exposure for the disrupted trip: how many bookings are affected and how
+    // much committed money sits behind them. A dashboard that only says
+    // "1 alert" makes the traveller open it to learn anything.
+    const assessments = analyzeCancellation({
+      bookings: demoItinerary,
+      canceledBookingId: incident.bookingId,
+      replacementArrivalTime: incident.replacementArrivalTime,
+    });
+    const status = new Map(assessments.map((a) => [a.bookingId, a.status]));
+    const exposure = { broken: 0, atRisk: 0, safe: 0 };
+    let valueAtRisk = 0;
+    for (const booking of demoItinerary) {
+      const state = status.get(booking.id) ?? "safe";
+      if (state === "broken") { exposure.broken += 1; valueAtRisk += booking.cost.minorUnits; }
+      else if (state === "at-risk") { exposure.atRisk += 1; valueAtRisk += booking.cost.minorUnits; }
+      else exposure.safe += 1;
+    }
+
+    const trips = TRIPS.map((trip) => {
+      const alerting = trip.id === incident.tripId;
+      return {
         ...trip,
-        alert: trip.id === incident.tripId
+        alert: alerting
           ? {
             incidentId: incident.id,
             severity: incident.severity,
@@ -172,7 +191,25 @@ export function createRouter() {
             detectedMinutesAgo: incident.detectedMinutesAgo,
           }
           : null,
-      })),
+        exposure: alerting ? exposure : { broken: 0, atRisk: 0, safe: trip.bookingCount },
+        valueAtRisk: { currency: "SGD", minorUnits: alerting ? valueAtRisk : 0 },
+      };
+    });
+
+    res.json({
+      contractVersion: CONTRACT_VERSION,
+      trips,
+      summary: {
+        trips: trips.length,
+        bookings: trips.reduce((n, t) => n + t.bookingCount, 0),
+        providers: trips.reduce((n, t) => n + t.providerCount, 0),
+        committed: {
+          currency: "SGD",
+          minorUnits: trips.reduce((n, t) => n + t.totalCommitted.minorUnits, 0),
+        },
+        valueAtRisk: { currency: "SGD", minorUnits: valueAtRisk },
+        alerts: trips.filter((t) => t.alert).length,
+      },
       incidents: listIncidents(),
       activeIncidentId: incident.id,
     });

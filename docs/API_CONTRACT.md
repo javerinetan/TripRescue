@@ -474,3 +474,124 @@ Before Gate 4, integration tests must prove:
 8. Reusing an idempotency key returns the original receipt without another
    payment or delivery.
 9. No API response contains an XRPL seed.
+
+---
+
+## Endpoints added after Gate 4
+
+The sections above are the frozen integration boundary between the domain and
+payment halves. These were added as the product grew past that boundary. They
+follow the same conventions — `contractVersion`, minor-unit money, ISO 8601 with
+offset, the shared `ApiError` shape — and none of them change the six above.
+
+### Discovery
+
+`GET /api/suppliers/registry` — the index the agent reads at runtime to learn
+which suppliers exist at all. Scoped to the supplier category the live incident
+needs, so a lost rental car surfaces car suppliers and a cancelled tour surfaces
+tour operators. Each entry is a `SupplierOffer` with `resourcePath` pointing at
+its 402-gated resource.
+
+The agent is not pre-provisioned with any supplier: it learns identity and
+resource path here, and price from the 402 challenge. That is what makes the
+payment agent-native rather than a card transaction with extra steps.
+
+### Monitoring
+
+`GET /api/trips` — the dashboard. Returns every monitored trip, the one alert
+that is live, and a `summary` for the header.
+
+```json
+{
+  "trips": [{
+    "id": "trip-tokyo-sep",
+    "title": "Tokyo & Hakone",
+    "dates": "4 – 8 September 2026",
+    "purpose": "Client meeting in Tokyo on the 5th…",
+    "bookingCount": 7,
+    "providerCount": 5,
+    "totalCommitted": { "currency": "SGD", "minorUnits": 184900 },
+    "exposure": { "broken": 3, "atRisk": 2, "safe": 2 },
+    "valueAtRisk": { "currency": "SGD", "minorUnits": 111700 },
+    "alert": {
+      "incidentId": "flight-cancelled",
+      "severity": "critical",
+      "headline": "Flight SQ634 cancelled",
+      "detail": "…",
+      "source": "Airline operations feed",
+      "detectedMinutesAgo": 2
+    }
+  }],
+  "summary": {
+    "trips": 3, "bookings": 14, "providers": 12,
+    "committed": { "currency": "SGD", "minorUnits": 386900 },
+    "valueAtRisk": { "currency": "SGD", "minorUnits": 111700 },
+    "alerts": 1
+  },
+  "incidents": [],
+  "activeIncidentId": "flight-cancelled"
+}
+```
+
+`POST /api/incidents/active` — `{ "incidentId": "rental-unavailable" }`. Chooses
+which monitored incident is live and resets mandate, executions and faults. A
+demo affordance: in production the feeds decide this. Incident ids are
+`flight-cancelled`, `rental-unavailable`, `activity-cancelled`.
+
+Every incident feeds the same `analyzeCancellation`, so the cascade genuinely
+differs rather than being scripted per scenario.
+
+### Traveller intent and the mandate
+
+`GET /api/priorities` — the selectable priorities, each with a suggested budget
+and the dimension it ranks offers by (`cost`, `time`, `risk`).
+
+`POST /api/mandates/interpret` — `{ "text": "…" }`. Free text in, a **proposed**
+mandate out. Never writes the mandate.
+
+```json
+{
+  "source": "llm" | "fallback" | "deterministic" | "none",
+  "model": "claude-sonnet-5",
+  "llmConfigured": true,
+  "proposal": { "priority": "business", "maximumAdditionalSpend": {}, "arrivalDeadline": "", "preserveBookingIds": [] },
+  "reasons": [], "rejected": []
+}
+```
+
+Every proposed field is validated against server-side truth before it is
+returned. A budget outside the permitted range is **dropped, not clamped**; an
+unknown booking id is discarded; an unparseable deadline is refused. Anything
+removed is named in `rejected`. Without `ANTHROPIC_API_KEY` a deterministic
+keyword parser is used and `source` says so.
+
+`POST /api/mandates/configure` — `{ priority, maximumAdditionalSpend?,
+arrivalDeadline?, preserveBookingIds? }`. Writes the mandate. Priority supplies
+defaults; supplied fields override them. Priorities permit **tiers**
+(`protected`, `express`, `budget`) which expand to concrete `allowedSupplierIds`
+for whichever supplier category the live incident needs, so `RescueMandate`
+keeps the shape defined above.
+
+`GET /api/mandates/:mandateId` — the mandate plus `remaining` budget.
+
+### Outcome
+
+`GET /api/recovery/changes?planId=&offerId=` — the before/after of what the
+agent changed, derived from the authorised plan and the offer actually bought.
+Each entry is `replaced`, `kept`, `released` or `notified`, and `cost`
+reconciles the plan estimate against what was really spent.
+
+`GET /api/recovery/claim` — what remains recoverable, split into `claimable`,
+`refund` and `at-risk`, with the trip's policy applied (gross loss, less excess,
+expected payout, capped at the per-trip limit). Guidance only; filing is not
+automated.
+
+### Demo controls
+
+`POST /api/demo/reset` — restores mandate budget, clears executions and faults,
+returns to the default incident. Settled XRPL transactions are untouched.
+
+`GET|POST /api/demo/fault` — `{ "mode": "none" | "supplier-unavailable" |
+"settlement-fail" | "budget-exhausted" }`. Deliberate fault injection so failure
+handling can be demonstrated rather than asserted. Demo-only state; never
+touches the ledger.
