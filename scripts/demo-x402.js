@@ -86,7 +86,7 @@ async function main() {
   console.log(`   replayed: ${replay.body.replayed === true}`);
   console.log(`   same hash: ${replay.body.receipt?.transactionHash === delivered.body.receipt?.transactionHash}`);
 
-  step(7, "A supplier outside the mandate allow-list must be refused");
+  step(6, "A supplier outside the mandate allow-list must be refused");
   const blocked = registry.suppliers.find((o) => o.id === "offer-flex-transfer-002");
   const blockedChallenge = await json(`${blocked.resourcePath}?recoveryId=${RECOVERY_ID}`);
   const blockedPrepare = await json("/api/payments/prepare", {
@@ -103,7 +103,7 @@ async function main() {
   console.log(`   HTTP ${blockedPrepare.res.status} ${blockedPrepare.body.error?.code}`);
   console.log(`   ${blockedPrepare.body.error?.message}`);
 
-  console.log(`\nExplorer: ${executed.body.receipt.explorerUrl}\n`);
+  console.log(`\nExplorer: ${delivered.body.receipt.explorerUrl}\n`);
 }
 
 main().catch((error) => {

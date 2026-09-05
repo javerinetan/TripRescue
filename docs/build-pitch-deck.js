@@ -1,4 +1,4 @@
-const pptxgen = require("pptxgenjs");
+import pptxgen from "pptxgenjs";
 
 const INK = "0E1A2B";
 const INK_SOFT = "1B2A3F";
@@ -593,7 +593,7 @@ function card(slide, x, y, w, h, fill = SURFACE) {
     });
   });
 
-  s.addText("38 automated tests · deterministic policy · full decision trace in the UI", {
+  s.addText("93 automated tests · deterministic policy · full decision trace in the UI", {
     x: M, y: 6.5, w: 11.9, h: 0.35,
     fontFace: B, fontSize: 13, italic: true, color: MUTED, isTextBox: true, margin: 0,
   });
@@ -638,7 +638,7 @@ function card(slide, x, y, w, h, fill = SURFACE) {
     fontFace: B, fontSize: 13, italic: true, color: MUTED, isTextBox: true, margin: 0,
   });
 
-  const bigs = [["38", "automated tests"], ["3", "failure modes, live"], ["0", "seeds in the browser"]];
+  const bigs = [["93", "automated tests"], ["3", "failure modes, live"], ["0", "seeds in the browser"]];
   bigs.forEach(([n, l], i) => {
     const x = M + i * 4.06;
     s.addText(n, {
@@ -755,4 +755,4 @@ function card(slide, x, y, w, h, fill = SURFACE) {
   s.addNotes("Close on the north star. Remove the agent, or remove autonomous payment, and this product stops working. That is the test the challenge sets.");
 }
 
-pres.writeFile({ fileName: "TripRescue.pptx" }).then(() => console.log("wrote TripRescue.pptx"));
+pres.writeFile({ fileName: "docs/TripRescue-pitch.pptx" }).then(() => console.log("wrote docs/TripRescue-pitch.pptx"));

@@ -7,6 +7,11 @@ Travel providers understand their booking. Trip Rescue understands your trip.
 **Team Peanutss** — Javerine Tan · Min Xie
 SingHacks 2026, Ripple Challenge: AI-native business on XRPL with x402.
 
+## Demo and pitch
+
+- [Watch the Trip Rescue demo](./docs/demo/TripRescue-demo.mp4)
+- [Download the pitch deck](./docs/TripRescue-pitch.pptx)
+
 ---
 
 ## The problem
