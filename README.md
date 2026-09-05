@@ -91,6 +91,14 @@ Same cancellation, three different agent decisions, three different suppliers
 paid. The priority sets the budget, the supplier allow-list and the ranking; it
 can never relax a safety check.
 
+### The journey in one line
+
+> A trip breaks. Trip Rescue works out everything that breaks with it, offers
+> three whole-trip recoveries, and once the traveller authorises one, the agent
+> discovers suppliers it has no account with, pays them over x402 on the XRP
+> Ledger inside a bounded mandate, and hands back a confirmation you can show at
+> the desk.
+
 ### The journey
 
 **1. Monitoring.** The dashboard watches every trip and stays quiet. It shows
@@ -117,6 +125,11 @@ The agent then:
 The traveller makes one strategic decision. The agent does the operational and
 economic work inside explicit limits.
 
+**4b. The agent works alone.** Authorising is the go-ahead — there is no second
+button. It reads a supplier registry it was not provisioned with, is challenged
+with `402`, re-checks the mandate at the moment money would move, signs, and the
+supplier settles and verifies on-ledger before releasing anything.
+
 **5. What changed.** After settlement the traveller sees the specifics, not a
 success message: which booking went, what replaced it, from which provider, at
 what price against the plan estimate, and what was kept or released.
@@ -134,6 +147,10 @@ excess, expected payout). Filing takes days of paperwork, which is the contrast:
 the agent fixed the trip in seconds. Trip Rescue can assemble the claim with the
 cancellation notices and the on-chain receipt attached; **automatic filing is
 not built.**
+
+**7. A confirmation you can show.** The reservation the supplier released, with
+its reference, validity and the ledger transaction — printable, and verifiable
+by the provider against the transaction without contacting Trip Rescue.
 
 ## Architecture
 
@@ -256,6 +273,7 @@ Release-blocking invariants, each covered by tests:
 | 3 | Repeating an execution cannot create a duplicate purchase | `executions.js` idempotency fingerprints |
 | 4 | Failed, expired or mismatched payments cannot unlock delivery | `verifySettlement` checks 8 properties |
 | 5 | Destination, amount, network, supplier and invoice must match | server state wins over client input |
+| 5b | The agent cannot pay for a supplier it did not itself choose | `prepare` refuses any requirement with no recorded decision |
 | 6 | Wallet seeds stay server-side | never returned by any route; `.env` gitignored |
 | 7 | Every economic decision has an inspectable reason | decision trace in the UI |
 
@@ -264,6 +282,27 @@ Budget is reserved *before* submission, so concurrent requests cannot
 reservation; if the ledger may already have accepted the transaction but
 verification is uncertain, the reservation remains held and delivery is
 blocked rather than risking a second payment.
+
+## Three disruptions, one engine
+
+The cascade is not scripted per scenario. `analyzeCancellation` traverses
+whichever booking broke, so the same code produces genuinely different damage:
+
+| Incident | Cascade |
+| --- | --- |
+| Outbound flight cancelled | 3 broken, 2 at risk, 2 safe |
+| Rental car withdrawn | 2 broken, 5 safe — nothing upstream is touched |
+| Day tour cancelled | 1 broken, 6 safe — contained |
+
+And the same disruption resolves differently by what the traveller values:
+
+| Priority | Recommends | Agent buys | Cheapest strategy |
+| --- | --- | --- | --- |
+| Leisure | Cheapest | Protected transfer S$48 | available |
+| Business | Fastest | Express rail **S$61** | refused, arrives too late |
+| Family | Most reliable | Protected transfer S$48 | refused, too late and loses the activity |
+
+Every refusal names a reason that traces back to something the traveller said.
 
 ## Failure handling, demonstrated
 
@@ -330,13 +369,17 @@ to `.env`. Then open <http://localhost:5173>.
 ```
 server/recovery.js     trip graph, cascade analysis, strategy generation
 server/interpret.js    free text to a validated mandate proposal (the only LLM)
+server/scenarios.js    trips, incidents and per-incident recovery plans
+server/claims.js       what remains recoverable, against the trip's policy
+server/changes.js      before and after of what the agent changed
 server/mandate.js      deterministic mandate enforcement
 server/x402.js         x402 wire format, the one translation point
 server/xrpl.js         sign, submit, verify on XRPL Testnet
 server/suppliers.js    simulated suppliers + runtime registry
 server/executions.js   idempotency and execution state
 server/routes.js       recovery, supplier, 402 and payment routes
-src/                   React UI — cascade, strategies, mandate, receipt
+src/                   React UI — dashboard, cascade, strategies, mandate,
+                       agent panel, outcome, confirmation
 docs/TripRescue-pitch.pptx  16:9 pitch deck (regenerate: node docs/build-pitch-deck.js)
 docs/BUILD_PLAN.md     scope, gates, safety invariants
 docs/API_CONTRACT.md   integration contract between both halves
