@@ -7,6 +7,9 @@
 // monitor, and a demo where you press "cancel my flight" tells the wrong story.
 
 import { useEffect, useState } from "react";
+import RecoveredTrip from "./RecoveredTrip";
+import { buildRecoveredTrip } from "./recoveryOutcome";
+import type { ExecutionReceipt } from "./types";
 import {
   analyzeDisruption,
   configureMandate,
@@ -47,6 +50,7 @@ export default function App() {
   const [recommendedPlanId, setRecommendedPlanId] = useState<string | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<RecoveryPlan | null>(null);
   const [authorised, setAuthorised] = useState(false);
+  const [deliveredReceipt, setDeliveredReceipt] = useState<ExecutionReceipt | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function loadHome() {
@@ -105,6 +109,7 @@ export default function App() {
     await setActiveIncident(incidentId).catch(() => undefined);
     setSelectedPlan(null);
     setAuthorised(false);
+    setDeliveredReceipt(null);
     setPlans([]);
     await loadHome().catch(() => undefined);
   }
@@ -113,6 +118,7 @@ export default function App() {
     await resetDemo().catch(() => undefined);
     setSelectedPlan(null);
     setAuthorised(false);
+    setDeliveredReceipt(null);
     setPlans([]);
     setAssessments([]);
     setView("home");
@@ -185,6 +191,7 @@ export default function App() {
               recommendedPlanId={recommendedPlanId}
               selectedPlanId={selectedPlan?.id ?? null}
               onSelect={(plan) => {
+                setDeliveredReceipt(null);
                 setSelectedPlan(plan);
                 setAuthorised(true);
               }}
@@ -192,7 +199,24 @@ export default function App() {
             />
           )}
 
-          {selectedPlan && <PaymentFlow key={selectedPlan.id} planId={selectedPlan.id} />}
+          {selectedPlan && (
+            <>
+              <PaymentFlow
+                key={selectedPlan.id}
+                planId={selectedPlan.id}
+                onDelivered={setDeliveredReceipt}
+              />
+              {(() => {
+                const outcome = buildRecoveredTrip({
+                  plan: selectedPlan,
+                  receipt: deliveredReceipt,
+                  bookings,
+                  assessments,
+                });
+                return outcome ? <RecoveredTrip outcome={outcome} /> : null;
+              })()}
+            </>
+          )}
         </div>
       )}
     </main>

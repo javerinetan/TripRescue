@@ -19,6 +19,7 @@ async function json(path, init) {
 }
 
 async function main() {
+  await json("/api/demo/reset", { method: "POST" });
   step(1, "Agent discovers suppliers it was never provisioned with");
   const { body: registry } = await json("/api/suppliers/registry");
   for (const offer of registry.suppliers) {
@@ -37,7 +38,13 @@ async function main() {
   show(decoded.accepts[0]);
   const requirement = challenge.body.paymentRequirement;
 
-  step(3, "Agent re-checks the mandate and signs a payment intent");
+  step(3, "Agent selects a plan, obtains a guarded decision, and signs a payment intent");
+  const decisionResponse = await json("/api/recovery/offers", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ contractVersion: "1.0.0", recoveryId: RECOVERY_ID, planId: "plan-reliable-001", mandateId: "mandate-tokyo-001" }),
+  });
+  const decisionId = decisionResponse.body.decisionId;
   const prepared = await json("/api/payments/prepare", {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -45,6 +52,7 @@ async function main() {
       contractVersion: "1.0.0",
       requirementId: requirement.requirementId,
       planId: "plan-reliable-001",
+      decisionId,
       mandateId: "mandate-tokyo-001",
     }),
   });
@@ -54,54 +62,29 @@ async function main() {
   }
   show(prepared.body.preview);
 
-  step(4, "Supplier submits the signed intent and waits for XRPL validation");
-  const executed = await json("/api/payments/execute", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      contractVersion: "1.0.0",
-      executionId: prepared.body.executionId,
-      requirementId: requirement.requirementId,
-      idempotencyKey: `${RECOVERY_ID}:${target.id}:${prepared.body.executionId}`,
-    }),
-  });
-  if (executed.res.status !== 200) {
-    show(executed.body);
-    throw new Error("execute failed");
+  if (prepared.res.status !== 200) {
+    show(prepared.body);
+    throw new Error("prepare failed");
   }
-  show(executed.body.receipt);
-  console.log(`   remaining budget: ${executed.body.remainingLabel}`);
+  show(prepared.body.preview);
 
-  step(5, "Agent retries the resource with payment evidence");
-  const signature = Buffer.from(
-    JSON.stringify({
-      x402Version: 2,
-      accepted: decoded.accepts[0],
-      payload: { signedTxBlob: executed.body.receipt.transactionHash },
-    }),
-    "utf8",
-  ).toString("base64");
-
+  const idempotencyKey = `${RECOVERY_ID}:flight-cancelled:mandate-tokyo-001:plan-reliable-001:${target.id}`;
+  step(4, "Agent retries the resource with the genuine opaque signed intent");
   const delivered = await json(
     `${target.resourcePath}?recoveryId=${RECOVERY_ID}&executionId=${prepared.body.executionId}`,
-    { headers: { "PAYMENT-SIGNATURE": signature } },
+    { headers: { "PAYMENT-SIGNATURE": prepared.body.paymentSignature, "Idempotency-Key": idempotencyKey } },
   );
   console.log(`   HTTP ${delivered.res.status}`);
   show(delivered.body.receipt);
+  if (delivered.res.status !== 200) throw new Error("delivery failed");
 
-  step(6, "Replaying the same idempotency key must not pay again");
-  const replay = await json("/api/payments/execute", {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      contractVersion: "1.0.0",
-      executionId: prepared.body.executionId,
-      requirementId: requirement.requirementId,
-      idempotencyKey: `${RECOVERY_ID}:${target.id}:${prepared.body.executionId}`,
-    }),
-  });
+  step(5, "Replaying the same logical action must not pay again");
+  const replay = await json(
+    `${target.resourcePath}?recoveryId=${RECOVERY_ID}&executionId=${prepared.body.executionId}`,
+    { headers: { "PAYMENT-SIGNATURE": prepared.body.paymentSignature, "Idempotency-Key": idempotencyKey } },
+  );
   console.log(`   replayed: ${replay.body.replayed === true}`);
-  console.log(`   same hash: ${replay.body.receipt?.transactionHash === executed.body.receipt.transactionHash}`);
+  console.log(`   same hash: ${replay.body.receipt?.transactionHash === delivered.body.receipt?.transactionHash}`);
 
   step(7, "A supplier outside the mandate allow-list must be refused");
   const blocked = registry.suppliers.find((o) => o.id === "offer-flex-transfer-002");
@@ -112,6 +95,8 @@ async function main() {
     body: JSON.stringify({
       contractVersion: "1.0.0",
       requirementId: blockedChallenge.body.paymentRequirement.requirementId,
+      planId: "plan-reliable-001",
+      decisionId,
       mandateId: "mandate-tokyo-001",
     }),
   });

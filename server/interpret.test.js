@@ -65,9 +65,42 @@ test("the parser stays silent rather than guessing", () => {
 });
 
 test("interpretation always resolves, even on nonsense", async () => {
-  const result = await interpretRequest("asdfgh");
-  assert.ok(["llm", "fallback", "deterministic", "none"].includes(result.source));
+  const result = await interpretRequest("asdfgh", { provider: null });
+  assert.equal(result.source, "deterministic");
   assert.ok(Array.isArray(result.reasons));
+});
+
+test("a provider proposal is validated and records served model provenance", async () => {
+  const result = await interpretRequest("client meeting, preserve Fuji", {
+    provider: {
+      model: "claude-opus-5",
+      interpretIntent: async () => ({
+        servedModel: "claude-opus-5",
+        proposal: {
+          priority: "business",
+          preserveBookingIds: ["activity-fuji", "invented-booking"],
+          explanation: "Arrive for the meeting and keep the Fuji activity.",
+        },
+      }),
+    },
+  });
+  assert.equal(result.source, "llm");
+  assert.equal(result.model, "claude-opus-5");
+  assert.equal(result.modelAttempt.outcome, "used");
+  assert.deepEqual(result.proposal.preserveBookingIds, ["activity-fuji"]);
+  assert.match(result.rejected.join(" "), /invented-booking/);
+});
+
+test("a provider failure falls back deterministically with provenance", async () => {
+  const result = await interpretRequest("client meeting before noon", {
+    provider: {
+      model: "claude-opus-5",
+      interpretIntent: async () => { throw new Error("provider unavailable"); },
+    },
+  });
+  assert.equal(result.source, "fallback");
+  assert.equal(result.modelAttempt.outcome, "provider-error");
+  assert.equal(result.proposal.priority, "business");
 });
 
 test("empty input asks for nothing", async () => {

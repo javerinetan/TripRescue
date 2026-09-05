@@ -63,10 +63,12 @@ the one place an LLM is used — to *propose* a mandate, never to authorise one.
 
 Every proposed field is validated against server-side truth before the traveller
 sees it: a budget outside the permitted range is dropped rather than clamped, an
-invented booking id is discarded, an unparseable deadline is refused. If no API
-key is configured or the model call fails, a deterministic keyword parser takes
-over and the product degrades to something honest instead of breaking. The
-traveller confirms the proposal before it becomes a mandate.
+invented booking id is discarded, an unparseable deadline is refused. The same
+optional Claude provider can rank only offers that deterministic policy already
+approved; it cannot authorize payment or relax a constraint. If no API key is
+configured or either model call fails, deterministic parsing and safest-compliant
+offer selection take over, with the UI showing which method won. The traveller
+confirms the proposal before it becomes a mandate.
 
 ```
 "client meeting … before noon … up to $500"
@@ -115,6 +117,7 @@ flowchart TB
 
     subgraph api["Node / Express API"]
         REC["recovery.js<br/>dependency graph, cascade,<br/>strategy generation"]
+        AGT["agent.js + Claude ranker<br/>filter first, rank safe offers"]
         MAN["mandate.js<br/>deterministic policy<br/>enforced at payment time"]
         EXE["executions.js<br/>idempotency + state"]
         X402["x402.js<br/>PAYMENT-REQUIRED / SIGNATURE<br/>/ RESPONSE"]
@@ -131,8 +134,9 @@ flowchart TB
     LEDGER[("XRP Ledger<br/>Testnet")]
 
     UI --> REC
-    UI --> MAN
-    REC --> MAN
+    UI --> AGT
+    REC --> AGT
+    AGT --> MAN
     MAN --> EXE
     EXE --> X402
     X402 --> XRPL
@@ -154,16 +158,16 @@ sequenceDiagram
 
     T->>A: Authorise a strategy (Rescue Mandate)
     A->>S: GET registry — discover suppliers
-    S-->>A: 3 offers, prices unknown until challenged
+    S-->>A: Runtime-discovered offers with indicative terms
     A->>S: GET protected resource (no payment)
     S-->>A: 402 + PAYMENT-REQUIRED (scheme exact, xrpl:1, drops, invoiceId)
-    A->>A: Re-check mandate: budget, allow-list,<br/>network, deadline, preserved bookings
+    A->>A: Deterministic mandate filter, then Claude ranks safe offers
     A->>A: Sign payment intent (does not submit)
-    A->>S: Submit signed intent
+    A->>S: Retry with opaque PAYMENT-SIGNATURE + stable idempotency key
+    S->>S: Match accepted requirement and genuine signed blob
     S->>L: submitAndWait(signedTxBlob)
     L-->>S: validated, tesSUCCESS
     S->>L: Re-verify destination, amount,<br/>SourceTag, invoice memo
-    A->>S: Retry with PAYMENT-SIGNATURE
     S-->>A: 200 + reservation hold + PAYMENT-RESPONSE
     A-->>T: Recovered itinerary + on-chain receipt
 ```
@@ -227,8 +231,11 @@ Release-blocking invariants, each covered by tests:
 | 6 | Wallet seeds stay server-side | never returned by any route; `.env` gitignored |
 | 7 | Every economic decision has an inspectable reason | decision trace in the UI |
 
-Budget is reserved *before* submission and released if settlement fails, so a
-concurrent execution cannot double-spend the mandate.
+Budget is reserved *before* submission, so concurrent requests cannot
+ double-spend the mandate. A known pre-submission failure releases the
+reservation; if the ledger may already have accepted the transaction but
+verification is uncertain, the reservation remains held and delivery is
+blocked rather than risking a second payment.
 
 ## Failure handling, demonstrated
 
@@ -241,9 +248,9 @@ fault injector, so the failure paths can be shown live:
 | Settlement rejected | `502`, execution marked failed, nothing delivered | **released** |
 | Budget exhausted | `403 mandate-violation` at prepare, agent halts | no payment |
 
-Budget is reserved before submission and released if settlement fails, so a
-failed payment strands neither money nor authorisation. The same modes are
-available over the API:
+A simulated failure before submission releases the reservation. A failure after
+submission but before independent verification retains the reservation and
+blocks delivery until reconciliation. The same modes are available over the API:
 
 ```bash
 curl -X POST localhost:8787/api/demo/fault -H 'content-type: application/json'   -d '{"mode":"settlement-fail"}'

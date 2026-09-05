@@ -112,7 +112,7 @@ function uniqueViolations(evaluatedOffers) {
   return [...byCode.values()];
 }
 
-export async function decideSupplierOffer({ offers, plan, mandate, ranker }) {
+export async function decideSupplierOffer({ offers, plan, mandate, ranker, priority }) {
   const evaluatedOffers = offers.map((offer) => ({
     offer,
     violations: evaluateOffer(offer, plan, mandate),
@@ -132,6 +132,7 @@ export async function decideSupplierOffer({ offers, plan, mandate, ranker }) {
         offers: structuredClone(compliantOffers),
         plan: structuredClone(plan),
         mandate: structuredClone(mandate),
+        priority,
       });
     } catch {
       rankedDecision = null;
@@ -144,6 +145,7 @@ export async function decideSupplierOffer({ offers, plan, mandate, ranker }) {
   const hasCompleteRankedDecision = rankedOffer
     && typeof rankedDecision.explanation === "string"
     && rankedDecision.explanation.trim().length > 0;
+  const usedModel = hasCompleteRankedDecision && rankedDecision.provenance?.finalMethod === "model";
   const selectedOffer = hasCompleteRankedDecision
     ? rankedOffer
     : safestOffer(compliantOffers);
@@ -160,6 +162,17 @@ export async function decideSupplierOffer({ offers, plan, mandate, ranker }) {
   return {
     selectedOfferId: selectedOffer.id,
     consideredOfferIds: offers.map(({ id }) => id),
+    rankedOfferIds: compliantOffers.map(({ id }) => id),
+    rejectedOffers: evaluatedOffers
+      .filter(({ violations }) => violations.length > 0)
+      .map(({ offer, violations }) => ({ offerId: offer.id, violations })),
+    decisionMode: usedModel ? "model" : "deterministic-fallback",
+    provenance: usedModel
+      ? rankedDecision.provenance
+      : {
+        finalMethod: "deterministic",
+        modelAttempt: rankedDecision?.provenance?.modelAttempt ?? null,
+      },
     reasons,
     mandateCompliant: true,
     violations: [],

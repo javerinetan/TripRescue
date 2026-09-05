@@ -16,9 +16,9 @@
 
 import { demoItinerary } from "./recovery.js";
 import { PRIORITIES, getPriority } from "./priorities.js";
+import { createAnthropicProvider } from "./anthropic-provider.js";
 
-const MODEL = process.env.ANTHROPIC_MODEL || "claude-sonnet-5";
-const API = "https://api.anthropic.com/v1/messages";
+const MODEL = process.env.ANTHROPIC_MODEL || "claude-opus-5";
 
 const MIN_BUDGET = 5000;
 const MAX_BUDGET = 80000;
@@ -26,8 +26,8 @@ const MAX_BUDGET = 80000;
 const KNOWN_BOOKINGS = demoItinerary.map(({ id }) => id);
 const PRIORITY_IDS = Object.keys(PRIORITIES);
 
-export function llmConfigured() {
-  return Boolean(process.env.ANTHROPIC_API_KEY);
+export function llmConfigured(provider = createAnthropicProvider()) {
+  return Boolean(provider);
 }
 
 // --- validation -------------------------------------------------------------
@@ -148,69 +148,47 @@ export function parseDeterministically(text) {
 
 // --- LLM path ---------------------------------------------------------------
 
-const SYSTEM = `You convert a traveller's plain description of their trip into a structured recovery mandate.
-
-Return ONLY a JSON object, no prose, with any of these optional keys:
-  priority: one of ${PRIORITY_IDS.join(", ")}
-  maximumAdditionalSpend: { "currency": "SGD", "minorUnits": <integer cents, ${MIN_BUDGET}-${MAX_BUDGET}> }
-  arrivalDeadline: ISO 8601 with offset, on 2026-09-05, Japan time (+09:00)
-  preserveBookingIds: array from ${KNOWN_BOOKINGS.join(", ")}
-  explanation: one short sentence, addressed to the traveller, saying what you understood
-
-Omit any key you are not confident about. Never invent a booking id. Never
-exceed the budget range. You are proposing a mandate for a human to approve,
-not authorising a payment.`;
-
-async function callModel(text, signal) {
-  const res = await fetch(API, {
-    method: "POST",
-    signal,
-    headers: {
-      "content-type": "application/json",
-      "x-api-key": process.env.ANTHROPIC_API_KEY,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model: MODEL,
-      max_tokens: 512,
-      system: SYSTEM,
-      messages: [{ role: "user", content: text }],
-    }),
-  });
-  if (!res.ok) throw new Error(`Model returned ${res.status}.`);
-  const body = await res.json();
-  const raw = body?.content?.find((part) => part.type === "text")?.text ?? "";
-  const json = raw.match(/\{[\s\S]*\}/);
-  if (!json) throw new Error("Model did not return JSON.");
-  return JSON.parse(json[0]);
-}
 
 /**
  * Interprets free text into a validated mandate proposal.
  * Always resolves; never throws into the request path.
  */
-export async function interpretRequest(text, { timeoutMs = 12000 } = {}) {
+export async function interpretRequest(text, {
+  timeoutMs = 12000,
+  provider = createAnthropicProvider(),
+} = {}) {
   const said = String(text ?? "").trim();
   if (said.length < 3) {
     return { source: "none", proposal: {}, reasons: ["Nothing to interpret."], rejected: [] };
   }
 
-  if (llmConfigured()) {
+  let modelAttempt = null;
+  if (provider) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     try {
-      const raw = await callModel(said, controller.signal);
-      const { proposal, rejected } = validateProposal(raw);
+      const result = await provider.interpretIntent({
+        text: said,
+        knownBookings: KNOWN_BOOKINGS,
+        priorityIds: PRIORITY_IDS,
+        signal: controller.signal,
+      });
+      const { proposal, rejected } = validateProposal(result.proposal);
+      modelAttempt = { provider: "anthropic", requestedModel: provider.model ?? MODEL, servedModel: result.servedModel, outcome: "used" };
       if (Object.keys(proposal).length > 0) {
         const reasons = [];
-        if (typeof raw.explanation === "string" && raw.explanation.trim()) {
-          reasons.push(raw.explanation.trim());
+        if (typeof result.proposal?.explanation === "string" && result.proposal.explanation.trim()) {
+          reasons.push(result.proposal.explanation.trim().slice(0, 300));
         }
-        return { source: "llm", model: MODEL, proposal, reasons, rejected };
+        return { source: "llm", model: result.servedModel ?? provider.model ?? MODEL, modelAttempt, proposal, reasons, rejected };
       }
-      // Model produced nothing usable; fall through to the parser.
-    } catch {
-      // Any model failure falls through. The traveller still gets a mandate.
+      modelAttempt.outcome = "invalid-output";
+    } catch (error) {
+      modelAttempt = {
+        provider: "anthropic",
+        requestedModel: provider.model ?? MODEL,
+        outcome: error?.name === "AbortError" ? "timeout" : "provider-error",
+      };
     } finally {
       clearTimeout(timer);
     }
@@ -219,7 +197,8 @@ export async function interpretRequest(text, { timeoutMs = 12000 } = {}) {
   const { proposal, reasons } = parseDeterministically(said);
   const { proposal: safe, rejected } = validateProposal(proposal);
   return {
-    source: llmConfigured() ? "fallback" : "deterministic",
+    source: provider ? "fallback" : "deterministic",
+    modelAttempt,
     proposal: safe,
     reasons: reasons.length > 0 ? reasons : ["Could not read a clear preference; keeping the current mandate."],
     rejected,

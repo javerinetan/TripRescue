@@ -68,8 +68,11 @@ export async function challengeResource(
   return { requirement: body.paymentRequirement as PaymentRequirement, accepted, wire };
 }
 
-export async function preparePayment(requirementId: string): Promise<{
+export async function preparePayment(requirementId: string, planId: string, decisionId: string): Promise<{
   executionId: string;
+  paymentSignature: string;
+  planId: string;
+  offerId: string;
   preview: TransactionPreview;
   offer: { title: string; price: { minorUnits: number }; supplierId: string };
   budget: { authorized: { minorUnits: number }; remainingAfter: { minorUnits: number } };
@@ -80,7 +83,8 @@ export async function preparePayment(requirementId: string): Promise<{
     body: JSON.stringify({
       contractVersion: "1.0.0",
       requirementId,
-      planId: "plan-reliable-001",
+      planId,
+      decisionId,
       mandateId: MANDATE_ID,
     }),
   });
@@ -103,18 +107,23 @@ export async function executePayment(
 export async function claimResource(
   offer: SupplierOffer,
   executionId: string,
-  accepted: Record<string, unknown>,
-  transactionHash: string,
-): Promise<{ receipt: ExecutionReceipt; wire: WireExchange[] }> {
-  const payload = { x402Version: 2, accepted, payload: { signedTxBlob: transactionHash } };
-  const signature = btoa(JSON.stringify(payload));
-  const { data, res } = await call<{ receipt: ExecutionReceipt }>(
+  paymentSignature: string,
+  idempotencyKey: string,
+): Promise<{ receipt: ExecutionReceipt; wire: WireExchange[]; replayed?: boolean }> {
+  let maskedPayload: unknown = { x402Version: 2, payload: { signedTxBlob: "<opaque signed transaction masked>" } };
+  try {
+    const decoded = JSON.parse(atob(paymentSignature));
+    maskedPayload = { ...decoded, payload: { ...decoded.payload, signedTxBlob: "<opaque signed transaction masked>" } };
+  } catch {
+    // The signature is intentionally opaque to application behavior.
+  }
+  const { data, res } = await call<{ receipt: ExecutionReceipt; replayed?: boolean }>(
     `${offer.resourcePath}?recoveryId=${RECOVERY_ID}&executionId=${executionId}`,
-    { headers: { "PAYMENT-SIGNATURE": signature } },
+    { headers: { "PAYMENT-SIGNATURE": paymentSignature, "Idempotency-Key": idempotencyKey } },
   );
   const responseHeader = res.headers.get("PAYMENT-RESPONSE");
   const wire: WireExchange[] = [
-    { dir: "out", label: `GET ${offer.resourcePath}`, header: "PAYMENT-SIGNATURE", payload },
+    { dir: "out", label: `GET ${offer.resourcePath}`, header: "PAYMENT-SIGNATURE", payload: maskedPayload },
     {
       dir: "in",
       label: "200 OK — resource released",
@@ -122,7 +131,7 @@ export async function claimResource(
       payload: responseHeader ? JSON.parse(atob(responseHeader)) : {},
     },
   ];
-  return { receipt: data.receipt, wire };
+  return { receipt: data.receipt, replayed: data.replayed, wire };
 }
 
 export function formatSgd(minorUnits: number): string {
@@ -184,20 +193,25 @@ export function formatLocalTime(iso: string): string {
 export interface OfferDecision {
   selectedOfferId: string | null;
   consideredOfferIds: string[];
+  rankedOfferIds?: string[];
+  rejectedOffers?: { offerId: string; violations: { code: string; explanation: string }[] }[];
   reasons: string[];
   mandateCompliant: boolean;
   violations: { code: string; explanation: string }[];
+  decisionMode?: "model" | "deterministic-fallback";
+  provenance?: { finalMethod: "model" | "deterministic"; modelAttempt?: unknown };
 }
 
 /** The agent's ranked economic decision over everything it discovered. */
-export async function fetchOfferDecision(): Promise<{
+export async function fetchOfferDecision(planId: string): Promise<{
   offers: SupplierOffer[];
+  decisionId: string;
   decision: OfferDecision;
 }> {
   const { data } = await call<never>("/api/recovery/offers", {
     method: "POST",
     headers: { "content-type": "application/json" },
-    body: JSON.stringify({ contractVersion: "1.0.0", recoveryId: RECOVERY_ID, mandateId: MANDATE_ID }),
+    body: JSON.stringify({ contractVersion: "1.0.0", recoveryId: RECOVERY_ID, planId, mandateId: MANDATE_ID }),
   });
   return data as never;
 }
@@ -255,6 +269,7 @@ export async function configureMandate(
 export interface Interpretation {
   source: "llm" | "fallback" | "deterministic" | "none";
   model: string | null;
+  modelAttempt?: unknown;
   llmConfigured: boolean;
   proposal: {
     priority?: string;

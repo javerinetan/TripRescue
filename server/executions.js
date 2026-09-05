@@ -9,11 +9,22 @@ import crypto from "node:crypto";
 const executions = new Map(); // executionId -> execution
 const byIdempotencyKey = new Map(); // key -> executionId
 const requirements = new Map(); // requirementId -> requirement record
+const decisions = new Map(); // decisionId -> guarded supplier decision
 
 export function resetExecutions() {
   executions.clear();
   byIdempotencyKey.clear();
   requirements.clear();
+  decisions.clear();
+}
+
+export function saveDecision(record) {
+  decisions.set(record.decisionId, record);
+  return record;
+}
+
+export function getDecision(decisionId) {
+  return decisions.get(decisionId) ?? null;
 }
 
 export function newId(prefix) {
@@ -55,10 +66,10 @@ export function updateExecution(executionId, patch) {
  * requests with the same idempotency key but a different fingerprint are a
  * conflict, not a retry.
  */
-export function fingerprint({ requirementId, offerId, amountDrops, destination }) {
+export function fingerprint({ recoveryId, incidentId = "", planId, mandateId, offerId, amountDrops, destination }) {
   return crypto
     .createHash("sha256")
-    .update([requirementId, offerId, amountDrops, destination].join("|"))
+    .update([recoveryId, incidentId, planId, mandateId, offerId, amountDrops, destination].join("|"))
     .digest("hex");
 }
 

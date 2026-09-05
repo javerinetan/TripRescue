@@ -212,20 +212,24 @@ requests as each gate passes.
 - [x] Invalid, incomplete, or unavailable AI output falls back to the safest
   compliant offer.
 - [x] No-compliant-offer cases stop with a mandate violation.
-- [ ] Connect a live model ranker after the team confirms an available provider
-  and API key.
+- [x] Optional Claude ranking uses the official Anthropic SDK and is clearly
+  separated from deterministic mandate enforcement.
+- [x] Traveller intent may be interpreted by Claude, then validated and confirmed
+  before it changes the Rescue Mandate.
 
 ### Gate 4 — End-to-end UI
 
-- [ ] The UI renders domain/API results instead of duplicate hardcoded logic.
-- [ ] Agent decision, mandate use, payment status, delivered value, transaction
+- [x] The UI renders domain/API results instead of duplicate hardcoded logic.
+- [x] Agent decision, mandate use, payment status, delivered value, transaction
   hash, and explorer link are visible.
-- [ ] Failure paths are understandable and recoverable.
+- [x] Failure paths are understandable and recoverable.
+- [x] A delivered result distinguishes the confirmed supplier hold from planned
+  or simulated provider actions and separates estimated plan cost from payment.
 
 ### Gate 5 — Submission freeze
 
-- [ ] `npm run check` passes.
-- [ ] `npm run build` passes.
+- [x] `npm run check` passes.
+- [x] `npm run build` passes.
 - [ ] A clean-browser demo completes in under three minutes.
 - [ ] Public README contains setup, architecture, flow, safeguards, transaction
   hash, explorer link, and builder feedback.
