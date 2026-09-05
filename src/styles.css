@@ -958,12 +958,12 @@ button.panel-head:hover:not(:disabled), button.panel-head:active:not(:disabled) 
 .import-kicker { color: var(--accent); }
 
 .import-copy h2 {
-  max-width: 12ch;
-  margin: 18px 0;
-  font-size: clamp(38px, 6vw, 62px);
+  max-width: 18ch;
+  margin: 14px 0;
+  font-size: 30px;
   font-weight: 500;
-  line-height: 0.98;
-  letter-spacing: -0.05em;
+  line-height: 1.2;
+  letter-spacing: -0.03em;
 }
 
 .import-copy > p { max-width: 52ch; color: var(--muted); }
@@ -972,7 +972,7 @@ button.panel-head:hover:not(:disabled), button.panel-head:active:not(:disabled) 
 .import-progress {
   min-height: 18px;
   margin: 14px 0 0;
-  font: 12px/1.5 var(--mono);
+  font: 400 14px/1.5 var(--sans);
   color: var(--accent);
 }
 
@@ -1021,7 +1021,7 @@ button.panel-head:hover:not(:disabled), button.panel-head:active:not(:disabled) 
   padding: 14px 0;
   border-bottom: 1px solid var(--ink-line);
   color: var(--on-ink-faint);
-  font: 12px/1.4 var(--mono);
+  font: 13px/1.4 var(--mono);
   transition: color 0.2s ease;
 }
 
@@ -1066,7 +1066,7 @@ button.panel-head:hover:not(:disabled), button.panel-head:active:not(:disabled) 
 }
 
 .import-provenance strong { font-size: 14px; font-weight: 600; }
-.import-provenance p { margin: 2px 0 0; color: var(--muted); font: 11px/1.5 var(--mono); }
+.import-provenance p { margin: 3px 0 0; color: var(--muted); font: 400 13px/1.5 var(--sans); }
 .replay-import { margin-left: auto; padding: 8px 14px; white-space: nowrap; font-size: 12px; }
 
 @media (max-width: 700px) {
