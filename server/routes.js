@@ -60,7 +60,9 @@ import { NoCompliantOfferError, decideSupplierOffer } from "./agent.js";
 import { DEFAULT_PRIORITY, getPriority, listPriorities, rankerFor } from "./priorities.js";
 import { createModelRanker } from "./model-ranker.js";
 import { describeProposal, interpretRequest, llmConfigured } from "./interpret.js";
-import { DEFAULT_INCIDENT, TRIPS, getIncident, listIncidents, plansForIncident } from "./scenarios.js";
+import { DEFAULT_INCIDENT, TRIPS, getIncident, listIncidents, plansForIncident, policyFor } from "./scenarios.js";
+import { summariseChanges } from "./changes.js";
+import { assessClaim } from "./claims.js";
 
 const CONTRACT_VERSION = "1.0.0";
 const DEMO_RECOVERY_ID = "recovery-tokyo-001";
@@ -187,6 +189,46 @@ export function createRouter({
         riskScore: offer.riskScore,
         preservesBookingIds: offer.preservesBookingIds,
       })),
+    });
+  });
+
+  // What is still recoverable once the trip is back together.
+  router.get("/recovery/claim", (req, res) => {
+    const incident = getIncident(activeIncidentId);
+    const assessments = analyzeCancellation({
+      bookings: demoItinerary,
+      canceledBookingId: incident.bookingId,
+      replacementArrivalTime: incident.replacementArrivalTime,
+    });
+    const authorised = DEMO_MANDATE.maximumAdditionalSpend.minorUnits;
+    const left = remainingBudget(DEMO_MANDATE.id) ?? authorised;
+    res.json({
+      contractVersion: CONTRACT_VERSION,
+      ...assessClaim({
+        bookings: demoItinerary,
+        assessments,
+        spentMinorUnits: Math.max(0, (getMandate(DEMO_MANDATE.id)?.maximumAdditionalSpend.minorUnits ?? authorised) - left),
+        policy: policyFor(incident.tripId),
+      }),
+    });
+  });
+
+  // Exactly what the agent changed, derived from the authorised plan and the
+  // offer it actually bought.
+  router.get("/recovery/changes", (req, res) => {
+    const incident = getIncident(activeIncidentId);
+    const mandate = getMandate(DEMO_MANDATE.id);
+    const plans = plansForIncident(activeIncidentId, mandate ?? DEMO_MANDATE);
+    const plan = plans.find(({ id }) => id === req.query.planId) ?? plans[0];
+    const offer = req.query.offerId ? getOffer(String(req.query.offerId)) : null;
+    const assessments = analyzeCancellation({
+      bookings: demoItinerary,
+      canceledBookingId: incident.bookingId,
+      replacementArrivalTime: incident.replacementArrivalTime,
+    });
+    res.json({
+      contractVersion: CONTRACT_VERSION,
+      ...summariseChanges({ bookings: demoItinerary, incident, plan, offer, assessments }),
     });
   });
 

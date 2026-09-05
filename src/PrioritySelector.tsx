@@ -6,6 +6,7 @@
 // changes the recommended strategy, the mandate, and which supplier the agent
 // buys from.
 
+import { useState } from "react";
 import { formatSgd } from "./api";
 import type { Priority } from "./api";
 
@@ -24,12 +25,25 @@ export default function PrioritySelector({
   onBudgetChange: (minorUnits: number) => void;
   disabled: boolean;
 }) {
+  const [open, setOpen] = useState(false);
+  const current = priorities.find((p) => p.id === selected);
+
   return (
     <section className="card">
       <div className="card-head">
         <h2>The mandate this creates</h2>
-        <span className="panel-sub">read from your words — adjust it if we got it wrong</span>
+        <button className="ghost small-btn" onClick={() => setOpen((v) => !v)}>
+          {open ? "Done" : "Adjust"}
+        </button>
       </div>
+
+      <p className="mandate-summary">
+        <strong>{current?.label ?? selected}</strong>
+        <span> · up to {formatSgd(budget)} · ranks offers by {current?.rank}</span>
+      </p>
+
+      {!open ? null : (
+        <>
 
       <div className="priorities">
         {priorities.map((priority) => (
@@ -59,6 +73,8 @@ export default function PrioritySelector({
         />
         <output>{formatSgd(budget)}</output>
       </label>
+        </>
+      )}
     </section>
   );
 }

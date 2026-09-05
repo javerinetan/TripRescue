@@ -5,9 +5,9 @@ const INK_SOFT = "1B2A3F";
 const PAPER = "FFFFFF";
 const SURFACE = "F2F5F8";
 const LINE = "DCE3EA";
-const TEXT = "16202C";
+const TEXT = "141A1F";
 const MUTED = "5D6B7C";
-const AGENT = "3B6FE0";
+const AGENT = "0067E5";
 const BROKEN = "D14B4B";
 const RISK = "D99A2B";
 const SAFE = "1E9E63";
@@ -408,7 +408,7 @@ function card(slide, x, y, w, h, fill = SURFACE) {
 
     s.addText(price, {
       x: x + 0.28, y: 4.68, w: 1.4, h: 0.42,
-      fontFace: H, fontSize: 26, bold: true, color: highlight ? "6C9BFF" : color, isTextBox: true, margin: 0,
+      fontFace: H, fontSize: 26, bold: true, color: highlight ? "6FA8FF" : color, isTextBox: true, margin: 0,
     });
     s.addText(why, {
       x: x + 1.62, y: 4.8, w: 1.9, h: 0.3,
@@ -675,7 +675,7 @@ function card(slide, x, y, w, h, fill = SURFACE) {
     });
     s.addText(price, {
       x: x + 0.28, y: 2.62, w: 3.22, h: 0.4,
-      fontFace: H, fontSize: 21, bold: true, color: i === 1 ? "6C9BFF" : color, isTextBox: true, margin: 0,
+      fontFace: H, fontSize: 21, bold: true, color: i === 1 ? "6FA8FF" : color, isTextBox: true, margin: 0,
     });
     s.addText(what, {
       x: x + 0.28, y: 3.14, w: 3.22, h: 1.1,

@@ -35,7 +35,16 @@ const STEPS: { id: string; label: string }[] = [
 
 type Log = { id: number; kind: "info" | "decision" | "refusal" | "money" | "error"; text: string };
 
-export default function PaymentFlow({ planId, onDelivered }: { planId: string; onDelivered?: (receipt: ExecutionReceipt) => void }) {
+export default function PaymentFlow({
+  planId,
+  onDelivered,
+  onComplete,
+}: {
+  planId: string;
+  onDelivered?: (receipt: ExecutionReceipt) => void;
+  onComplete?: (offerId: string) => void;
+}) {
+  const started = useRef(false);
   const [mandate, setMandate] = useState<RescueMandate | null>(null);
   const [remaining, setRemaining] = useState<number | null>(null);
   const [offers, setOffers] = useState<SupplierOffer[]>([]);
@@ -48,6 +57,9 @@ export default function PaymentFlow({ planId, onDelivered }: { planId: string; o
   const [busy, setBusy] = useState(false);
   const [elapsed, setElapsed] = useState(0);
   const [fault, setFaultMode] = useState<FaultMode>("none");
+  const [proofOpen, setProofOpen] = useState(false);
+  const [traceOpen, setTraceOpen] = useState(true);
+  const [demoOpen, setDemoOpen] = useState(false);
   const startedAt = useRef<number | null>(null);
 
   const log = (kind: Log["kind"], text: string) =>
@@ -63,6 +75,14 @@ export default function PaymentFlow({ planId, onDelivered }: { planId: string; o
         setRemaining(data.remaining.minorUnits);
       })
       .catch(() => undefined);
+  }, []);
+
+  // Authorising the plan is the go-ahead. The agent starts on its own.
+  useEffect(() => {
+    if (started.current) return;
+    started.current = true;
+    runLoop().catch(() => undefined);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // A recovery is a race against the clock. Show it running.
@@ -143,6 +163,7 @@ export default function PaymentFlow({ planId, onDelivered }: { planId: string; o
 
       const fresh = await fetchMandate();
       setRemaining(fresh.remaining.minorUnits);
+      onComplete?.(offer.id);
     } catch (error) {
       const failure = error as ApiFailure;
       const blocked = failure.code === "mandate-violation";
@@ -197,40 +218,11 @@ export default function PaymentFlow({ planId, onDelivered }: { planId: string; o
 
       <section className="panel">
         <div className="panel-row">
-          <span className="panel-title">Execution</span>
-          <div className="actions">
-            <button disabled={busy} onClick={() => runLoop()}>
-              {busy ? "Working…" : "Execute recovery"}
-            </button>
-            <button className="ghost" disabled={busy} onClick={() => runLoop("offer-flex-transfer-002")}>
-              Force an off-mandate supplier
-            </button>
-          </div>
+          <span className="panel-title">{busy ? "Working" : "Done"}</span>
+          {!busy && (
+            <button className="ghost" onClick={() => runLoop()}>Run again</button>
+          )}
         </div>
-
-        <label className="fault">
-          <span className="fault-label">Inject fault</span>
-          <select
-            value={fault}
-            disabled={busy}
-            onChange={async (event) => {
-              const next = event.target.value as FaultMode;
-              setFaultMode(next);
-              await setFault(next).catch(() => undefined);
-              const fresh = await fetchMandate().catch(() => null);
-              if (fresh) setRemaining(fresh.remaining.minorUnits);
-            }}
-          >
-            {FAULT_MODES.map((mode) => (
-              <option key={mode.id} value={mode.id}>{mode.label}</option>
-            ))}
-          </select>
-          <span className="fault-hint">
-            {fault === "none"
-              ? "Break it on purpose and watch the safeguards hold."
-              : "Money must not move, and nothing may be delivered."}
-          </span>
-        </label>
 
         <ol className="steps">
           {steps.map((step) => (
@@ -276,9 +268,19 @@ export default function PaymentFlow({ planId, onDelivered }: { planId: string; o
         </section>
       )}
 
-      <WireInspector exchanges={wire} />
+      {(wire.length > 0 || preview) && (
+        <section className="panel">
+          <button className="panel-head bare" onClick={() => setProofOpen((v) => !v)} aria-expanded={proofOpen}>
+            <span className="panel-title">Proof</span>
+            <span className="panel-sub">the x402 exchange and the signed intent</span>
+            <span className={`chevron ${proofOpen ? "open" : ""}`} aria-hidden="true" />
+          </button>
+        </section>
+      )}
 
-      {preview && (
+      {proofOpen && <WireInspector exchanges={wire} />}
+
+      {proofOpen && preview && (
         <section className="panel">
           <span className="panel-title">Signed payment intent</span>
           <dl className="kv">
@@ -317,14 +319,52 @@ export default function PaymentFlow({ planId, onDelivered }: { planId: string; o
 
       {logs.length > 0 && (
         <section className="panel">
-          <span className="panel-title">Decision trace</span>
-          <ul className="logs">
+          <button className="panel-head bare" onClick={() => setTraceOpen((v) => !v)} aria-expanded={traceOpen}>
+            <span className="panel-title">Why the agent did that</span>
+            <span className="panel-sub">{logs.length} decisions</span>
+            <span className={`chevron ${traceOpen ? "open" : ""}`} aria-hidden="true" />
+          </button>
+          <ul className="logs" hidden={!traceOpen}>
             {logs.map((entry) => (
               <li key={entry.id} className={entry.kind}>{entry.text}</li>
             ))}
           </ul>
         </section>
       )}
+      <section className="panel demo-controls">
+        <button className="panel-head bare" onClick={() => setDemoOpen((v) => !v)} aria-expanded={demoOpen}>
+          <span className="panel-title">Demo controls</span>
+          <span className="panel-sub">break it on purpose</span>
+          <span className={`chevron ${demoOpen ? "open" : ""}`} aria-hidden="true" />
+        </button>
+
+        {demoOpen && (
+          <div className="demo-body">
+            <label className="fault">
+              <span className="fault-label">Inject fault</span>
+              <select
+                value={fault}
+                disabled={busy}
+                onChange={async (event) => {
+                  const next = event.target.value as FaultMode;
+                  setFaultMode(next);
+                  await setFault(next).catch(() => undefined);
+                  const fresh = await fetchMandate().catch(() => null);
+                  if (fresh) setRemaining(fresh.remaining.minorUnits);
+                }}
+              >
+                {FAULT_MODES.map((mode) => (
+                  <option key={mode.id} value={mode.id}>{mode.label}</option>
+                ))}
+              </select>
+              <span className="fault-hint">Then run again — money must not move.</span>
+            </label>
+            <button className="ghost" disabled={busy} onClick={() => runLoop("offer-flex-transfer-002")}>
+              Force a supplier outside the mandate
+            </button>
+          </div>
+        )}
+      </section>
     </div>
   );
 }

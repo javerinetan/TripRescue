@@ -26,6 +26,8 @@ import PrioritySelector from "./PrioritySelector";
 import TripCascade from "./TripCascade";
 import RecoveryPlans from "./RecoveryPlans";
 import PaymentFlow from "./PaymentFlow";
+import ClaimSummary from "./ClaimSummary";
+import TripChanges from "./TripChanges";
 import type { Booking, BookingAssessment, RecoveryPlan } from "./types";
 
 type View = "home" | "recovery";
@@ -52,6 +54,8 @@ export default function App() {
   const [authorised, setAuthorised] = useState(false);
   const [deliveredReceipt, setDeliveredReceipt] = useState<ExecutionReceipt | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [settled, setSettled] = useState(0);
+  const [boughtOfferId, setBoughtOfferId] = useState<string | undefined>(undefined);
 
   async function loadHome() {
     const data = await fetchTrips();
@@ -110,6 +114,8 @@ export default function App() {
     setSelectedPlan(null);
     setAuthorised(false);
     setDeliveredReceipt(null);
+    setSettled(0);
+    setBoughtOfferId(undefined);
     setPlans([]);
     await loadHome().catch(() => undefined);
   }
@@ -119,6 +125,8 @@ export default function App() {
     setSelectedPlan(null);
     setAuthorised(false);
     setDeliveredReceipt(null);
+    setSettled(0);
+    setBoughtOfferId(undefined);
     setPlans([]);
     setAssessments([]);
     setView("home");
@@ -192,6 +200,8 @@ export default function App() {
               selectedPlanId={selectedPlan?.id ?? null}
               onSelect={(plan) => {
                 setDeliveredReceipt(null);
+                setSettled(0);
+                setBoughtOfferId(undefined);
                 setSelectedPlan(plan);
                 setAuthorised(true);
               }}
@@ -205,6 +215,10 @@ export default function App() {
                 key={selectedPlan.id}
                 planId={selectedPlan.id}
                 onDelivered={setDeliveredReceipt}
+                onComplete={(offerId) => {
+                  setBoughtOfferId(offerId);
+                  setSettled((count) => count + 1);
+                }}
               />
               {(() => {
                 const outcome = buildRecoveredTrip({
@@ -217,6 +231,12 @@ export default function App() {
               })()}
             </>
           )}
+
+          {selectedPlan && settled > 0 && (
+            <TripChanges planId={selectedPlan.id} offerId={boughtOfferId} />
+          )}
+
+          {selectedPlan && <ClaimSummary refreshToken={settled} />}
         </div>
       )}
     </main>
