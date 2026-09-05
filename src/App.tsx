@@ -4,6 +4,7 @@
 import { useEffect, useState } from "react";
 import { analyzeDisruption, configureMandate, fetchPlans, fetchPriorities, resetDemo } from "./api";
 import type { Priority } from "./api";
+import IntentInput from "./IntentInput";
 import PrioritySelector from "./PrioritySelector";
 import TripCascade from "./TripCascade";
 import RecoveryPlans from "./RecoveryPlans";
@@ -21,6 +22,8 @@ export default function App() {
   const [selectedPlan, setSelectedPlan] = useState<RecoveryPlan | null>(null);
   const [phase, setPhase] = useState<"idle" | "loading" | "cascade" | "authorised">("idle");
   const [error, setError] = useState<string | null>(null);
+  const [preserve, setPreserve] = useState<string[]>([]);
+  const [deadline, setDeadline] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     analyzeDisruption()
@@ -47,7 +50,7 @@ export default function App() {
   // Re-plan whenever the mandate inputs change, so the traveller sees the
   // consequence of their own choice before authorising anything.
   async function refreshPlans() {
-    await configureMandate(priority, budget);
+    await configureMandate(priority, budget, { preserveBookingIds: preserve, arrivalDeadline: deadline });
     const planned = await fetchPlans();
     setPlans(planned.plans);
     setRecommendedPlanId(planned.recommendedPlanId);
@@ -57,7 +60,7 @@ export default function App() {
     if (phase !== "cascade") return;
     refreshPlans().catch((err) => setError((err as Error).message));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [priority, budget, phase]);
+  }, [priority, budget, preserve, deadline, phase]);
 
   async function triggerCancellation() {
     setPhase("loading");
@@ -108,6 +111,16 @@ export default function App() {
             reservation.
           </p>
         </section>
+
+        <IntentInput
+          disabled={phase === "authorised"}
+          onApply={(proposal) => {
+            if (proposal.priority) setPriority(proposal.priority);
+            if (proposal.maximumAdditionalSpend) setBudget(proposal.maximumAdditionalSpend.minorUnits);
+            if (proposal.preserveBookingIds) setPreserve(proposal.preserveBookingIds);
+            if (proposal.arrivalDeadline) setDeadline(proposal.arrivalDeadline);
+          }}
+        />
 
         {priorities.length > 0 && (
           <PrioritySelector

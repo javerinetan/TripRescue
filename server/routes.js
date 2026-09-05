@@ -54,6 +54,7 @@ import { analyzeCancellation, demoItinerary, generateRecoveryPlans } from "./rec
 import { FAULT_MODES, clearFault, currentFault, setFault, shouldFail } from "./faults.js";
 import { NoCompliantOfferError, decideSupplierOffer } from "./agent.js";
 import { DEFAULT_PRIORITY, getPriority, listPriorities, rankerFor } from "./priorities.js";
+import { describeProposal, interpretRequest, llmConfigured } from "./interpret.js";
 
 const CONTRACT_VERSION = "1.0.0";
 const DEMO_RECOVERY_ID = "recovery-tokyo-001";
@@ -111,6 +112,22 @@ export function createRouter() {
     res.json({ contractVersion: CONTRACT_VERSION, priorities: listPriorities(), default: DEFAULT_PRIORITY });
   });
 
+  // Free text in, a proposed mandate out. The traveller still has to confirm it;
+  // this endpoint never writes the mandate itself.
+  router.post("/mandates/interpret", async (req, res) => {
+    const result = await interpretRequest(req.body?.text);
+    res.json({
+      contractVersion: CONTRACT_VERSION,
+      source: result.source,
+      model: result.model ?? null,
+      llmConfigured: llmConfigured(),
+      proposal: result.proposal,
+      preview: describeProposal(result.proposal),
+      reasons: result.reasons,
+      rejected: result.rejected,
+    });
+  });
+
   // Authorising a strategy writes the mandate. Priority sets the defaults; the
   // traveller may tighten or loosen the budget before authorising.
   router.post("/mandates/configure", (req, res) => {
@@ -122,6 +139,9 @@ export function createRouter() {
     }
     if (typeof req.body?.arrivalDeadline === "string" && Number.isFinite(Date.parse(req.body.arrivalDeadline))) {
       overrides.arrivalDeadline = req.body.arrivalDeadline;
+    }
+    if (Array.isArray(req.body?.preserveBookingIds) && req.body.preserveBookingIds.length > 0) {
+      overrides.preserveBookingIds = req.body.preserveBookingIds;
     }
     const mandate = configureMandate({ priority, ...overrides });
     res.json({

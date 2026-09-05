@@ -237,7 +237,11 @@ export async function fetchPriorities(): Promise<{ priorities: Priority[]; defau
 }
 
 /** Authorising a strategy writes the mandate from priority plus any edits. */
-export async function configureMandate(priority: string, budgetMinorUnits?: number): Promise<RescueMandate> {
+export async function configureMandate(
+  priority: string,
+  budgetMinorUnits?: number,
+  extras: { preserveBookingIds?: string[]; arrivalDeadline?: string } = {},
+): Promise<RescueMandate> {
   const { data } = await call<{ mandate: RescueMandate }>("/api/mandates/configure", {
     method: "POST",
     headers: { "content-type": "application/json" },
@@ -245,7 +249,39 @@ export async function configureMandate(priority: string, budgetMinorUnits?: numb
       contractVersion: "1.0.0",
       priority,
       ...(budgetMinorUnits ? { maximumAdditionalSpend: { currency: "SGD", minorUnits: budgetMinorUnits } } : {}),
+      ...(extras.preserveBookingIds?.length ? { preserveBookingIds: extras.preserveBookingIds } : {}),
+      ...(extras.arrivalDeadline ? { arrivalDeadline: extras.arrivalDeadline } : {}),
     }),
   });
   return data.mandate;
+}
+
+export interface Interpretation {
+  source: "llm" | "fallback" | "deterministic" | "none";
+  model: string | null;
+  llmConfigured: boolean;
+  proposal: {
+    priority?: string;
+    maximumAdditionalSpend?: Money;
+    arrivalDeadline?: string;
+    preserveBookingIds?: string[];
+  };
+  preview: {
+    priority: string;
+    maximumAdditionalSpend: Money;
+    arrivalDeadline: string;
+    preserveBookingIds: string[];
+  };
+  reasons: string[];
+  rejected: string[];
+}
+
+/** Free text in, a proposed mandate out. Never writes the mandate. */
+export async function interpretRequest(text: string): Promise<Interpretation> {
+  const { data } = await call<never>("/api/mandates/interpret", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ contractVersion: "1.0.0", text }),
+  });
+  return data as never;
 }

@@ -104,5 +104,6 @@ export function mandateFor(priorityId, overrides = {}) {
     maximumAdditionalSpend: overrides.maximumAdditionalSpend ?? priority.maximumAdditionalSpend,
     arrivalDeadline: overrides.arrivalDeadline ?? priority.arrivalDeadline,
     allowedSupplierIds: overrides.allowedSupplierIds ?? priority.allowedSupplierIds,
+    ...(overrides.preserveBookingIds ? { preserveBookingIds: overrides.preserveBookingIds } : {}),
   };
 }

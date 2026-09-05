@@ -42,7 +42,27 @@ A confirmed flight cancellation disrupts a five-provider Tokyo itinerary:
 | Rental car pickup | Hakone Drive | 🟠 at risk — pickup before arrival |
 | Mount Fuji activity | Fuji Day Tours | 🔴 broken — prerequisites unmet |
 
-**The traveller first says what matters on this trip.** That is the only
+**The traveller describes the trip in their own words.** "I have a client meeting
+tomorrow and need to land before noon, I can spend up to $500 extra, and I
+really don't want to lose the Fuji tour." That is genuine ambiguity, so it is
+the one place an LLM is used — to *propose* a mandate, never to authorise one.
+
+Every proposed field is validated against server-side truth before the traveller
+sees it: a budget outside the permitted range is dropped rather than clamped, an
+invented booking id is discarded, an unparseable deadline is refused. If no API
+key is configured or the model call fails, a deterministic keyword parser takes
+over and the product degrades to something honest instead of breaking. The
+traveller confirms the proposal before it becomes a mandate.
+
+```
+"client meeting … before noon … up to $500"
+        ↓  interpret (LLM, validated)
+priority: business · budget: S$500 · arrive by: 5 Sep 12:00 JST
+        ↓  traveller confirms
+        Rescue Mandate
+```
+
+**Or they pick a priority directly.** That is the only
 preference input, and it changes everything downstream:
 
 | Priority | Budget | Recommended strategy | Agent buys | Why |
@@ -260,6 +280,7 @@ to `.env`. Then open <http://localhost:5173>.
 
 ```
 server/recovery.js     trip graph, cascade analysis, strategy generation
+server/interpret.js    free text to a validated mandate proposal (the only LLM)
 server/mandate.js      deterministic mandate enforcement
 server/x402.js         x402 wire format, the one translation point
 server/xrpl.js         sign, submit, verify on XRPL Testnet

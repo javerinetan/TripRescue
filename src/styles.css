@@ -568,3 +568,73 @@ button.ghost:hover:not(:disabled) { color: var(--ink); border-color: var(--ink-f
   min-width: 88px;
   text-align: right;
 }
+
+/* Intent input -------------------------------------------------------- */
+
+.intent {
+  width: 100%;
+  background: var(--bg);
+  color: var(--ink);
+  border: 1px solid var(--human-line);
+  border-radius: 10px;
+  padding: 13px 15px;
+  font: 15px/1.55 var(--sans);
+  resize: vertical;
+}
+.intent:focus { outline: none; border-color: var(--accent); }
+.intent::placeholder { color: var(--ink-faint); }
+.intent:disabled { opacity: 0.5; }
+
+.intent-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+
+.examples { display: flex; gap: 6px; flex-wrap: wrap; margin-left: auto; }
+
+.chip {
+  background: transparent;
+  border: 1px solid var(--human-line);
+  color: var(--ink-dim);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font: 11px/1 var(--mono);
+}
+.chip:hover:not(:disabled) { color: var(--ink); border-color: var(--ink-faint); filter: none; }
+
+.interpretation {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--human-line);
+}
+
+.interp-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
+.interp-head .label { margin: 0; }
+
+.interp-reason { margin: 0 0 10px; font-size: 14px; color: var(--ink); max-width: 70ch; }
+
+.interp-fields {
+  margin: 0 0 14px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+}
+.interp-fields > div {
+  background: var(--bg);
+  border: 1px solid var(--human-line);
+  border-radius: 8px;
+  padding: 9px 12px;
+}
+.interp-fields dt { font: 10px/1.6 var(--mono); text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-faint); }
+.interp-fields dd { margin: 2px 0 0; font: 600 14px/1.4 var(--sans); color: var(--ink); }
+
+.interp-rejected {
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border: 1px dashed var(--warn);
+  border-radius: 8px;
+}
+.interp-rejected p { margin: 4px 0 0; font: 12px/1.5 var(--mono); color: var(--ink-dim); }
