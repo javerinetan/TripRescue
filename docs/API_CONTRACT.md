@@ -254,6 +254,10 @@ During V1, an empty `bookings` array means “use the fixed demo itinerary.”
 
 ## 3. Discover supplier offers
 
+The monitoring UI may expose indicative offer metadata for comparison. The
+server-side `PAYMENT-REQUIRED` challenge remains authoritative for the exact
+amount, payee, invoice, timeout, and accepted wire entry.
+
 `POST /api/recovery/offers`
 
 ### Request
@@ -273,12 +277,16 @@ During V1, an empty `bookings` array means “use the fixed demo itinerary.”
 {
   "contractVersion": "1.0.0",
   "offers": [],
+  "decisionId": "decision-abc123",
   "decision": {
     "selectedOfferId": "offer-protected-transfer-001",
     "consideredOfferIds": [
       "offer-protected-transfer-001",
       "offer-flex-transfer-002"
     ],
+    "rankedOfferIds": ["offer-protected-transfer-001"],
+    "rejectedOffers": [],
+    "decisionMode": "deterministic-fallback",
     "reasons": [
       "The offer preserves the activity and meets the arrival deadline.",
       "Its price remains within the authorized budget."
@@ -359,31 +367,29 @@ Two fields differ from the placeholder sketch above and are now authoritative:
 ```json
 {
   "contractVersion": "1.0.0",
-  "executionId": "execution-tokyo-001",
+  "requirementId": "requirement-transfer-001",
   "planId": "plan-reliable-001",
-  "offerId": "offer-protected-transfer-001",
-  "mandateId": "mandate-tokyo-001",
-  "paymentRequirement": {
-    "requirementId": "requirement-transfer-001",
-    "scheme": "exact",
-    "network": "xrpl:1",
-    "asset": "XRP",
-    "amountDrops": "51000",
-    "destination": "<merchant testnet address>",
-    "memo": "recovery-tokyo-001:offer-protected-transfer-001",
-    "expiresAt": "2026-09-05T11:00:00+08:00"
-  }
+  "decisionId": "decision-abc123",
+  "mandateId": "mandate-tokyo-001"
 }
 ```
 
-The server must re-evaluate the mandate. It must reject a client-supplied
-destination, amount, supplier, network, or offer that does not match trusted
-server state.
+The server resolves the requirement, plan, offer, mandate, incident snapshot,
+and guarded decision from trusted state. It rejects unknown or expired
+requirements/decisions, non-compliant plans, stale or mismatched decisions, and
+any payment that would exceed the current mandate. The response includes an
+opaque `paymentSignature`; clients forward it unchanged and must not expose its
+`signedTxBlob` value.
 
 ### `200 OK`
 
-Returns the transaction preview needed for explicit demo authorization. Wallet
-seeds and signed transaction blobs must not be returned.
+Returns the transaction preview and opaque payment signature needed for the
+protected-resource retry. Wallet seeds and a top-level signed transaction blob
+are never returned.
+
+The server re-evaluates the mandate immediately before signing and again before
+submission. Client-supplied destination, amount, supplier, network, or offer
+values never override trusted server state.
 
 ## 6. Execute payment
 
@@ -422,7 +428,15 @@ submitting another payment.
 ## 7. Retry and receive delivery
 
 The agent retries the protected supplier-resource request using the adopted
-x402 payment-proof headers and the same idempotency key.
+x402 payment-proof headers and the same stable logical idempotency key. The
+current browser flow sends the opaque `paymentSignature` returned by prepare in
+`PAYMENT-SIGNATURE`; the supplier validates its accepted requirement and genuine
+`signedTxBlob` against server-side execution state before settlement.
+
+The stable key identifies the recovery action (`recoveryId`, incident, mandate,
+plan, and offer), not a transient execution or 402 requirement ID. This allows a
+fresh challenge or repeated prepare for the same action to replay the original
+receipt without another payment.
 
 ### `200 OK`
 
