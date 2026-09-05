@@ -24,8 +24,10 @@ import assert from "node:assert/strict";
 import {
   IMPORT_SESSION_KEY,
   IMPORT_STAGES,
+  clearImportComplete,
   nextImportStage,
   readImportComplete,
+  saveImportComplete,
 } from "./tripImportState.ts";
 
 test("import stages advance in the order shown to the traveller", () => {
@@ -38,11 +40,26 @@ test("import stages advance in the order shown to the traveller", () => {
 });
 
 test("only the exact completed session value bypasses onboarding", () => {
-  const storage = (value) => ({ getItem: (key) => key === IMPORT_SESSION_KEY ? value : null });
+  const storage = (value) => ({
+    getItem: (key) => key === IMPORT_SESSION_KEY ? value : null,
+    setItem() {},
+    removeItem() {},
+  });
   assert.equal(readImportComplete(storage("complete")), true);
   assert.equal(readImportComplete(storage("true")), false);
   assert.equal(readImportComplete(storage(null)), false);
   assert.equal(readImportComplete(null), false);
+});
+
+test("storage restrictions never block import or replay", () => {
+  const restricted = {
+    getItem() { throw new Error("storage disabled"); },
+    setItem() { throw new Error("storage disabled"); },
+    removeItem() { throw new Error("storage disabled"); },
+  };
+  assert.equal(readImportComplete(restricted), false);
+  assert.doesNotThrow(() => saveImportComplete(restricted));
+  assert.doesNotThrow(() => clearImportComplete(restricted));
 });
 ```
 
@@ -78,7 +95,19 @@ export function nextImportStage(stage: ImportStage): ImportStage {
 }
 
 export function readImportComplete(storage: Pick<Storage, "getItem"> | null): boolean {
-  return storage?.getItem(IMPORT_SESSION_KEY) === "complete";
+  try {
+    return storage?.getItem(IMPORT_SESSION_KEY) === "complete";
+  } catch {
+    return false;
+  }
+}
+
+export function saveImportComplete(storage: Pick<Storage, "setItem"> | null): void {
+  try { storage?.setItem(IMPORT_SESSION_KEY, "complete"); } catch { /* Session persistence is optional. */ }
+}
+
+export function clearImportComplete(storage: Pick<Storage, "removeItem"> | null): void {
+  try { storage?.removeItem(IMPORT_SESSION_KEY); } catch { /* Replay still works in memory. */ }
 }
 ```
 
@@ -86,7 +115,7 @@ export function readImportComplete(storage: Pick<Storage, "getItem"> | null): bo
 
 Run: `node --test src/tripImportState.test.js`
 
-Expected: 2 tests pass, 0 fail.
+Expected: 3 tests pass, 0 fail.
 
 - [ ] **Step 5: Commit the state model**
 
@@ -164,12 +193,12 @@ const [importComplete, setImportComplete] = useState(() =>
 );
 
 const completeImport = useCallback(() => {
-  window.sessionStorage.setItem(IMPORT_SESSION_KEY, "complete");
+  saveImportComplete(window.sessionStorage);
   setImportComplete(true);
 }, []);
 
 const replayImport = useCallback(() => {
-  window.sessionStorage.removeItem(IMPORT_SESSION_KEY);
+  clearImportComplete(window.sessionStorage);
   setImportComplete(false);
 }, []);
 ```
@@ -180,7 +209,7 @@ Render `TripImport` when `view === "home" && !importComplete`; otherwise render 
 
 Run: `node ./node_modules/typescript/bin/tsc --noEmit && node --test src/tripImportState.test.js`
 
-Expected: TypeScript succeeds and 2 tests pass.
+Expected: TypeScript succeeds and 3 tests pass.
 
 - [ ] **Step 4: Commit onboarding behavior**
 
@@ -263,7 +292,7 @@ Blend these declarations into existing responsive and reduced-motion sections ra
 
 Run: `npm run check`
 
-Expected: 82 tests pass, 0 fail.
+Expected: 83 tests pass, 0 fail.
 
 - [ ] **Step 4: Commit the completed interface**
 
@@ -293,7 +322,7 @@ monitor provider feeds thereafter.
 
 Run: `npm run check && npm run build`
 
-Expected: 82 tests pass, 0 fail; Vite production build succeeds.
+Expected: 83 tests pass, 0 fail; Vite production build succeeds.
 
 - [ ] **Step 3: Perform browser QA at desktop and mobile widths**
 
