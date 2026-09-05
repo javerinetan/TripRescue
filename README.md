@@ -256,6 +256,33 @@ Challenge entries use `scheme: "exact"`, CAIP-2 `network: "xrpl:1"` (Testnet),
 The `invoiceId` binds one payment to exactly one recovery and one offer, so a
 receipt for a different offer can never unlock a resource.
 
+### XRPL AI Starter Kit
+
+The Starter Kit is a bundle of builder tooling rather than a runtime library: an
+XRPL docs MCP server, Claude skills for agent wallets and payments, the agentic
+transactions documentation, and x402 support. What we took from it:
+
+- **Its x402 support.** The whole commercial loop follows the XRPL x402 scheme,
+  described above.
+- **Its agent-tagging convention.** The XRPL Agent Wallet skill applies
+  `SourceTag = 20260530` to every transaction so agent-initiated activity is
+  separable from human activity on-chain. Every payment we make carries it, and
+  the supplier *verifies* it before releasing a resource — so the tag is part of
+  our safety check, not decoration.
+- **Its skills and docs, during the build.** This repo ships
+  `skills/xrpl-agentic-resources`, which vendors the dev-portal XRPL skills, the
+  x402 and RLUSD material and live amendment and fee snapshots. It is installed
+  project-scoped and was our reference throughout.
+
+**What we did differently, and why.** The Wallet skill signs through its own
+ceremony, which suits a developer driving an agent interactively. A product
+cannot work that way: seeds have to stay server-side, and a deterministic policy
+check has to run in the same breath as signing. So `server/xrpl.js` builds and
+signs the `Payment` directly on `xrpl.js`, and `server/mandate.js` re-evaluates
+the Rescue Mandate immediately before the transaction is signed and again before
+it is submitted. We kept the Kit's conventions and its protocol; we moved the
+signing behind our own policy gate.
+
 ### XRPL integration
 
 Payments carry SourceTag `20260530` for AI Starter Kit attribution and a
