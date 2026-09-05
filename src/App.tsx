@@ -254,6 +254,12 @@ export default function App() {
                 setPriority(id);
                 const match = priorities.find((p) => p.id === id);
                 if (match) setBudget(match.suggestedBudget.minorUnits);
+                // Choosing a priority outright replaces what was read from the
+                // traveller's booking text. Without this the earlier "we would
+                // hate to lose the Fuji day" kept ruling out the cheapest
+                // strategy, so switching priority appeared to do nothing.
+                setPreserve([]);
+                setDeadline(undefined);
               }}
               onBudgetChange={setBudget}
               disabled={authorised}

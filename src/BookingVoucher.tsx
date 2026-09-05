@@ -6,6 +6,8 @@
 // proves it. Printable, because the desk may want paper and the phone may be
 // dead, which is exactly the situation this product exists for.
 
+import { useEffect, useState } from "react";
+import QRCode from "qrcode";
 import { formatLocalTime, formatSgd } from "./api";
 import type { ExecutionReceipt } from "./types";
 
@@ -23,6 +25,17 @@ export default function BookingVoucher({
   travellerName: string;
 }) {
   const held = receipt.deliveredResource;
+  const [qr, setQr] = useState<string | null>(null);
+
+  // The desk scans this and lands on the transaction in the public explorer, so
+  // the provider can satisfy themselves without taking our word for anything.
+  useEffect(() => {
+    if (!receipt.explorerUrl) return;
+    QRCode.toDataURL(receipt.explorerUrl, { margin: 1, width: 320, errorCorrectionLevel: "M" })
+      .then(setQr)
+      .catch(() => setQr(null));
+  }, [receipt.explorerUrl]);
+
   if (!held) return null;
 
   return (
@@ -69,6 +82,9 @@ export default function BookingVoucher({
       <p className="voucher-note">{held.description}</p>
 
       <div className="voucher-proof">
+        {qr && (
+          <img className="voucher-qr" src={qr} alt="Scan to verify this booking on the XRP Ledger" />
+        )}
         <span className="label">Ledger transaction</span>
         <code>{receipt.transactionHash}</code>
         {receipt.explorerUrl && (

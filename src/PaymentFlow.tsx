@@ -261,13 +261,24 @@ export default function PaymentFlow({
                   <span className="offer-name">{offer.supplierId}</span>
                   <span className="offer-price">{formatSgd(offer.price.minorUnits)}</span>
                   <span className="offer-risk">risk {offer.riskScore}</span>
-                  <span className="offer-verdict">
-                    {chosen ? "selected" : rejected ? violations.map((item) => item.code).join(", ") : ok ? "eligible" : "not selected"}
-                  </span>
+                  {ok && !chosen && !busy ? (
+                    <button className="ghost pick" onClick={() => runLoop(offer.id)}>
+                      Use this instead
+                    </button>
+                  ) : (
+                    <span className="offer-verdict">
+                      {chosen ? "selected" : rejected ? violations.map((item) => item.code).join(", ") : ok ? "eligible" : "not selected"}
+                    </span>
+                  )}
                 </li>
               );
             })}
           </ul>
+          <p className="offer-note">
+            The agent picked the first one. Any other eligible supplier can be used
+            instead — the mandate is re-checked either way, and one outside it is
+            still refused.
+          </p>
         </section>
       )}
 
