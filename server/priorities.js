@@ -19,7 +19,8 @@ export const PRIORITIES = Object.freeze({
     label: "Leisure",
     summary: "Keep the extra cost down. I can absorb some delay.",
     maximumAdditionalSpend: sgd(30000),
-    arrivalDeadline: "2026-09-05T12:00:00+09:00",
+    arrivalDeadline: "2026-09-05T15:00:00+09:00",
+    preserveBookingIds: [],
     allowedTiers: ["protected"],
     preferredPlanKind: "cheapest",
     rank: "cost",
@@ -30,6 +31,7 @@ export const PRIORITIES = Object.freeze({
     summary: "Arrive as early as possible. Cost matters less than the meeting.",
     maximumAdditionalSpend: sgd(60000),
     arrivalDeadline: "2026-09-05T12:00:00+09:00",
+    preserveBookingIds: [],
     allowedTiers: ["protected", "express"],
     preferredPlanKind: "fastest",
     rank: "time",
@@ -40,6 +42,7 @@ export const PRIORITIES = Object.freeze({
     summary: "Prefer the most dependable option. Avoid tight connections.",
     maximumAdditionalSpend: sgd(45000),
     arrivalDeadline: "2026-09-05T12:00:00+09:00",
+    preserveBookingIds: ["activity-fuji"],
     allowedTiers: ["protected", "budget"],
     preferredPlanKind: "most-reliable",
     rank: "risk",
@@ -107,6 +110,9 @@ export function mandateFor(priorityId, overrides = {}, category = "transfer") {
     maximumAdditionalSpend: overrides.maximumAdditionalSpend ?? priority.maximumAdditionalSpend,
     arrivalDeadline: overrides.arrivalDeadline ?? priority.arrivalDeadline,
     allowedSupplierIds,
-    ...(overrides.preserveBookingIds ? { preserveBookingIds: overrides.preserveBookingIds } : {}),
+    // What the traveller said overrides the priority's default. Saying "the
+    // Fuji day is the part we'd hate to lose" is exactly the kind of thing that
+    // should rule the cheapest strategy out, and be explained when it does.
+    preserveBookingIds: overrides.preserveBookingIds ?? priority.preserveBookingIds ?? [],
   };
 }
