@@ -9,9 +9,9 @@ SingHacks 2026, Ripple Challenge: AI-native business on XRPL with x402.
 
 ## Demo and pitch
 
-- [Watch the Trip Rescue demo](./docs/demo/TripRescue-demo.mp4)
+https://github.com/user-attachments/assets/f59d12e7-a84c-43bb-8363-b101bbddfeb4
+
 - [Download the six-slide pitch deck](./docs/TripRescue-pitch.pptx)
-- [Download the original 12-slide deck](./docs/TripRescue-pitch-full.pptx)
 
 ---
 
