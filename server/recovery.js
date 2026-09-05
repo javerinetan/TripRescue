@@ -59,6 +59,32 @@ export const demoItinerary = [
     cost: sgd(12000),
     refundable: false,
   },
+  // The return journey. It depends on the same chain, but it is days later, so
+  // an outbound disruption should leave it alone. Proving that the cascade
+  // stops where it should matters as much as showing how far it spreads.
+  {
+    id: "transfer-hakone-nrt",
+    type: "transfer",
+    provider: "Hakone Express",
+    title: "Hakone to Narita transfer",
+    startTime: "2026-09-08T09:00:00+09:00",
+    endTime: "2026-09-08T12:00:00+09:00",
+    dependsOn: ["hotel-hakone"],
+    cost: sgd(4200),
+    refundable: true,
+    changeDeadline: "2026-09-07T20:00:00+09:00",
+  },
+  {
+    id: "flight-nrt-sin",
+    type: "flight",
+    provider: "Demo Air",
+    title: "Narita to Singapore",
+    startTime: "2026-09-08T15:00:00+09:00",
+    endTime: "2026-09-08T21:30:00+08:00",
+    dependsOn: ["transfer-hakone-nrt"],
+    cost: sgd(69000),
+    refundable: true,
+  },
 ];
 
 export const demoMandate = {

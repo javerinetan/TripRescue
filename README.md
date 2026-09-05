@@ -32,7 +32,9 @@ the consequences across my whole trip."**
 
 ## What Trip Rescue does
 
-A confirmed flight cancellation disrupts a five-provider Tokyo itinerary:
+Trip Rescue watches the traveller's trips. When a booking breaks, the alert
+arrives — the traveller never triggers it. A cancelled outbound flight on a
+seven-booking Tokyo itinerary:
 
 | Booking | Provider | Status after cancellation |
 | --- | --- | --- |
@@ -41,6 +43,18 @@ A confirmed flight cancellation disrupts a five-provider Tokyo itinerary:
 | Hakone hotel | Hakone Springs | 🟠 at risk — no-show risk |
 | Rental car pickup | Hakone Drive | 🟠 at risk — pickup before arrival |
 | Mount Fuji activity | Fuji Day Tours | 🔴 broken — prerequisites unmet |
+| Hakone → Narita transfer | Hakone Express | 🟢 safe — four days later |
+| Narita → Singapore flight | Demo Air | 🟢 safe — the return home is untouched |
+
+Showing where the damage **stops** matters as much as showing how far it
+spreads. The same engine handles two other incidents, and the cascade genuinely
+differs:
+
+| Incident | Cascade |
+| --- | --- |
+| Outbound flight cancelled | 3 broken, 2 at risk, 2 safe |
+| Rental car withdrawn | 2 broken, 5 safe — nothing upstream is touched |
+| Day tour cancelled | 1 broken, 6 safe — contained |
 
 **The traveller describes the trip in their own words.** "I have a client meeting
 tomorrow and need to land before noon, I can spend up to $500 extra, and I

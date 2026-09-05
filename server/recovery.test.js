@@ -47,6 +47,16 @@ test("classifies the fixed Tokyo itinerary after the flight cancellation", () =>
         status: "broken",
         reasonCode: "time-window-missed",
       },
+      {
+        bookingId: "transfer-hakone-nrt",
+        status: "safe",
+        reasonCode: "unaffected",
+      },
+      {
+        bookingId: "flight-nrt-sin",
+        status: "safe",
+        reasonCode: "unaffected",
+      },
     ],
   );
 });

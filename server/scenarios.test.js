@@ -17,7 +17,11 @@ const statuses = (incidentId) => {
 };
 
 test("a cancelled flight breaks the whole downstream chain", () => {
-  assert.deepEqual(statuses("flight-cancelled"), ["broken", "broken", "at-risk", "at-risk", "broken"]);
+  assert.deepEqual(statuses("flight-cancelled"), [
+    "broken", "broken", "at-risk", "at-risk", "broken",
+    // The return journey is days later and survives untouched.
+    "safe", "safe",
+  ]);
 });
 
 test("a withdrawn rental car leaves everything upstream of it safe", () => {
@@ -28,7 +32,7 @@ test("a withdrawn rental car leaves everything upstream of it safe", () => {
 
 test("a cancelled tour affects only itself", () => {
   const result = statuses("activity-cancelled");
-  assert.deepEqual(result, ["safe", "safe", "safe", "safe", "broken"]);
+  assert.deepEqual(result, ["safe", "safe", "safe", "safe", "broken", "safe", "safe"]);
 });
 
 test("every incident yields exactly three plan kinds", () => {

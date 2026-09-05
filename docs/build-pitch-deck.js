@@ -119,31 +119,33 @@ function card(slide, x, y, w, h, fill = SURFACE) {
 
 // ---------- 2. The problem ----------
 {
-  const s = lightSlide("You didn't buy a trip. You bought five things that depend on each other.", "The problem");
+  const s = lightSlide("You didn't buy a trip. You bought seven things that depend on each other.", "The problem");
 
   const chain = [
-    ["Flight", "Demo Air"],
+    ["Flight out", "Demo Air"],
     ["Airport bus", "Hakone Express"],
     ["Hotel", "Hakone Springs"],
     ["Rental car", "Hakone Drive"],
     ["Activity", "Fuji Day Tours"],
+    ["Transfer back", "Hakone Express"],
+    ["Flight home", "Demo Air"],
   ];
-  const cw = 2.16;
+  const cw = 1.48;
   chain.forEach(([name, provider], i) => {
-    const x = M + i * (cw + 0.28);
+    const x = M + i * (cw + 0.26);
     card(s, x, 2.05, cw, 1.15);
     s.addText(name, {
-      x: x + 0.16, y: 2.24, w: cw - 0.32, h: 0.3,
-      fontFace: B, fontSize: 14, bold: true, color: TEXT, isTextBox: true, margin: 0,
+      x: x + 0.12, y: 2.22, w: cw - 0.24, h: 0.3,
+      fontFace: B, fontSize: 12, bold: true, color: TEXT, isTextBox: true, margin: 0,
     });
     s.addText(provider, {
-      x: x + 0.16, y: 2.58, w: cw - 0.32, h: 0.45,
-      fontFace: B, fontSize: 11, color: MUTED, isTextBox: true, margin: 0,
+      x: x + 0.12, y: 2.54, w: cw - 0.24, h: 0.5,
+      fontFace: B, fontSize: 9.5, color: MUTED, isTextBox: true, margin: 0,
     });
     if (i < chain.length - 1) {
       s.addText("→", {
-        x: x + cw + 0.02, y: 2.45, w: 0.24, h: 0.3,
-        fontFace: B, fontSize: 16, color: MUTED, align: "center", isTextBox: true, margin: 0,
+        x: x + cw - 0.02, y: 2.45, w: 0.3, h: 0.3,
+        fontFace: B, fontSize: 14, color: MUTED, align: "center", isTextBox: true, margin: 0,
       });
     }
   });
@@ -188,7 +190,7 @@ function card(slide, x, y, w, h, fill = SURFACE) {
 
 // ---------- 3. The cascade ----------
 {
-  const s = lightSlide("One cancellation. Five consequences.", "What actually happens");
+  const s = lightSlide("One cancellation. And it knows where to stop.", "What actually happens");
 
   const rows = [
     ["Singapore → Narita flight", "Service cancelled", BROKEN, "Broken"],
@@ -196,31 +198,33 @@ function card(slide, x, y, w, h, fill = SURFACE) {
     ["Hakone hotel", "No-show risk on a non-refundable night", RISK, "At risk"],
     ["Rental car pickup", "Pickup window passes before arrival", RISK, "At risk"],
     ["Mount Fuji activity", "Prerequisites can no longer be met", BROKEN, "Broken"],
+    ["Hakone to Narita transfer", "Four days later, still feasible", SAFE, "Safe"],
+    ["Narita to Singapore flight", "The journey home is untouched", SAFE, "Safe"],
   ];
 
   // Spine first, dots on top of it.
   s.addShape(pres.ShapeType.line, {
-    x: M + 0.11, y: 2.11, w: 0, h: 0.72 * (rows.length - 1),
+    x: M + 0.11, y: 2.06, w: 0, h: 0.6 * (rows.length - 1),
     line: { color: LINE, width: 1 },
   });
   rows.forEach(([name, why, color, label], i) => {
-    const y = 1.95 + i * 0.72;
-    dot(s, M + 0.02, y + 0.16, color, 0.18);
+    const y = 1.9 + i * 0.6;
+    dot(s, M + 0.02, y + 0.13, color, 0.18);
     s.addText(name, {
-      x: M + 0.42, y: y + 0.02, w: 4.2, h: 0.3,
-      fontFace: B, fontSize: 15, bold: true, color: TEXT, isTextBox: true, margin: 0,
+      x: M + 0.42, y: y, w: 4.2, h: 0.3,
+      fontFace: B, fontSize: 14, bold: true, color: TEXT, isTextBox: true, margin: 0,
     });
     s.addText(label.toUpperCase(), {
-      x: M + 4.7, y: y + 0.05, w: 1.0, h: 0.26,
+      x: M + 4.7, y: y + 0.03, w: 1.0, h: 0.26,
       fontFace: B, fontSize: 10, bold: true, color, charSpacing: 1, isTextBox: true, margin: 0,
     });
     s.addText(why, {
-      x: M + 5.85, y: y + 0.02, w: 4.5, h: 0.32,
-      fontFace: B, fontSize: 13, color: MUTED, isTextBox: true, margin: 0,
+      x: M + 5.85, y: y, w: 4.5, h: 0.32,
+      fontFace: B, fontSize: 12.5, color: MUTED, isTextBox: true, margin: 0,
     });
   });
 
-  card(s, 10.75, 1.9, 1.88, 3.7, INK);
+  card(s, 10.75, 1.85, 1.88, 4.55, INK);
   s.addText("3", {
     x: 10.9, y: 2.15, w: 1.6, h: 0.75,
     fontFace: H, fontSize: 52, bold: true, color: BROKEN, align: "center", isTextBox: true, margin: 0,
@@ -237,13 +241,17 @@ function card(slide, x, y, w, h, fill = SURFACE) {
     x: 10.9, y: 4.33, w: 1.6, h: 0.3,
     fontFace: B, fontSize: 13, color: ICE, align: "center", isTextBox: true, margin: 0,
   });
-  s.addText("from one\ncancelled flight", {
-    x: 10.9, y: 4.85, w: 1.6, h: 0.6,
-    fontFace: B, fontSize: 11, color: MUTED, align: "center", isTextBox: true, margin: 0,
+  s.addText("2", {
+    x: 10.9, y: 5.02, w: 1.6, h: 0.75,
+    fontFace: H, fontSize: 52, bold: true, color: SAFE, align: "center", isTextBox: true, margin: 0,
+  });
+  s.addText("untouched", {
+    x: 10.9, y: 5.75, w: 1.6, h: 0.3,
+    fontFace: B, fontSize: 13, color: ICE, align: "center", isTextBox: true, margin: 0,
   });
 
-  s.addText("The real problem is not \"find me another flight.\" It is \"one booking broke — fix the consequences across my whole trip.\"", {
-    x: M, y: 5.95, w: 11.9, h: 0.5,
+  s.addText("Knowing what is still fine matters as much as knowing what broke. The return home is never touched.", {
+    x: M, y: 6.6, w: 10.5, h: 0.5,
     fontFace: B, fontSize: 16, italic: true, color: TEXT, isTextBox: true, margin: 0,
   });
 
