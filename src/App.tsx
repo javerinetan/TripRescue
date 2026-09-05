@@ -30,6 +30,7 @@ import ClaimSummary from "./ClaimSummary";
 import TripChanges from "./TripChanges";
 import TripImport from "./TripImport";
 import {
+  clearImportComplete,
   readImportComplete,
   saveImportComplete,
 } from "./tripImportState";
@@ -77,6 +78,11 @@ export default function App() {
   const completeImport = useCallback(() => {
     saveImportComplete(sessionStorageOrNull());
     setImportComplete(true);
+  }, []);
+
+  const replayImport = useCallback(() => {
+    clearImportComplete(sessionStorageOrNull());
+    setImportComplete(false);
   }, []);
 
   async function loadHome() {
@@ -175,6 +181,7 @@ export default function App() {
               activeIncidentId={activeIncidentId}
               onOpen={openRecovery}
               onSwitchIncident={switchIncident}
+              onReplayImport={replayImport}
             />
           ) : (
             <TripImport onComplete={completeImport} />

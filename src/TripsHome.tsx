@@ -44,6 +44,7 @@ export default function TripsHome({
   activeIncidentId,
   onOpen,
   onSwitchIncident,
+  onReplayImport,
 }: {
   trips: Trip[];
   summary: TripsSummary | null;
@@ -51,6 +52,7 @@ export default function TripsHome({
   activeIncidentId: string;
   onOpen: (trip: Trip) => void;
   onSwitchIncident: (incidentId: string) => void;
+  onReplayImport: () => void;
 }) {
   // Hold the alert back for a beat so it lands as something detected, not
   // something that was always sitting there.
@@ -65,6 +67,21 @@ export default function TripsHome({
 
   return (
     <>
+      <section className="import-provenance" aria-label="Trip import status">
+        <div className="provenance-mark" aria-hidden="true">✓</div>
+        <div>
+          <strong>
+            {summary
+              ? `${summary.trips} trips · ${summary.bookings} bookings imported`
+              : "Trips imported"}
+          </strong>
+          <p>One-time import complete · Inbox disconnected · Monitoring provider feeds</p>
+        </div>
+        <button className="ghost replay-import" onClick={onReplayImport}>
+          Replay import demo
+        </button>
+      </section>
+
       <section className="card dash">
         <div className="dash-head">
           <span className="pulse" aria-hidden="true" />
