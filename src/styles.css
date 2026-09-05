@@ -49,8 +49,15 @@
 
 * { box-sizing: border-box; }
 
+html { overflow-anchor: none; }
+
 body {
   margin: 0;
+  /* Scroll anchoring fights us on a view change: the recovery view's plans and
+     interpretation arrive after first paint, and the browser keeps the anchored
+     element in place, pushing the traveller down the page past the alert they
+     just clicked. */
+  overflow-anchor: none;
   background: var(--bg);
   color: var(--text);
   font: 16px/1.6 var(--sans);
@@ -1042,4 +1049,36 @@ button.ghost:hover:not(:disabled) { background: var(--surface); border-color: va
   margin: 0 0 18px;
   font-size: 14px;
   color: var(--faint);
+}
+
+/* View transition ------------------------------------------------------ */
+/* A change of view is a navigation, so it should read as one arrival      */
+/* rather than the page silently becoming something else.                  */
+
+.flow.enter { animation: viewIn 0.32s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+@keyframes viewIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+
+.crumb {
+  background: transparent;
+  border: 0;
+  padding: 0 0 14px;
+  color: var(--muted);
+  font: 400 14px/1 var(--sans);
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+.crumb:hover { background: transparent; color: var(--accent); }
+.crumb-arrow { font-size: 16px; }
+
+.trigger-head { align-items: flex-start; }
+.trigger-trip {
+  margin: 0 0 6px;
+  font: 400 14px/1.4 var(--sans);
+  color: var(--muted);
 }
