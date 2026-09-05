@@ -61,43 +61,18 @@ export default function TripsHome({
     return () => clearTimeout(timer);
   }, [activeIncidentId]);
 
-  const atRisk = alertVisible ? summary?.valueAtRisk.minorUnits ?? 0 : 0;
-
   return (
     <>
-      <section className="card dash">
-        <div className="dash-head">
-          <span className="pulse" aria-hidden="true" />
-          <span className="dash-title">Monitoring</span>
-          <span className={`dash-state ${alertVisible && summary?.alerts ? "alerting" : ""}`}>
-            {alertVisible && summary?.alerts ? `${summary.alerts} alert` : "all clear"}
-          </span>
-        </div>
-
-        {summary && (
-          <div className="stats">
-            <div className="stat">
-              <span className="stat-value">{summary.trips}</span>
-              <span className="stat-label">trips</span>
-            </div>
-            <div className="stat">
-              <span className="stat-value">{summary.bookings}</span>
-              <span className="stat-label">bookings</span>
-            </div>
-            <div className="stat">
-              <span className="stat-value">{summary.providers}</span>
-              <span className="stat-label">providers</span>
-            </div>
-            <div className="stat">
-              <span className="stat-value">{formatSgd(summary.committed.minorUnits)}</span>
-              <span className="stat-label">committed</span>
-            </div>
-            <div className="stat emphasis">
-              <span className={`stat-value ${atRisk > 0 ? "bad" : ""}`}>{formatSgd(atRisk)}</span>
-              <span className="stat-label">at risk now</span>
-            </div>
-          </div>
-        )}
+      <section className="dash">
+        <span className="pulse" aria-hidden="true" />
+        <span className="dash-title">
+          Monitoring {summary?.trips ?? trips.length} trips
+        </span>
+        <span className={`dash-state ${alertVisible && summary?.alerts ? "alerting" : ""}`}>
+          {alertVisible && summary?.alerts
+            ? `${summary.alerts} needs attention`
+            : "all clear"}
+        </span>
       </section>
 
       <div className="trips">
