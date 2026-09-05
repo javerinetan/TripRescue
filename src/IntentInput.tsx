@@ -1,22 +1,17 @@
-// "Tell us about this trip."
+// What matters on this trip.
 //
-// The only free-text input in the product, and deliberately so. Interpreting
-// what a traveller means is genuine ambiguity, which is where AI belongs.
-// Everything downstream — what the mandate permits, what the agent may buy — is
-// deterministic policy that this cannot reach past.
+// The traveller said why they were travelling when they booked, so this arrives
+// filled in rather than blank — the product should not ask again at the worst
+// possible moment. Editing it re-reads the intent and moves the mandate, so the
+// priority below is a consequence of their words, not a separate switch.
 //
-// The proposal is always shown before it is applied. The model suggests; the
-// traveller authorises.
+// Interpreting free text is the one genuinely ambiguous job here, which is why
+// it is the one place a model is used. Everything it proposes is validated
+// against server-side truth before it can touch a mandate.
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { formatLocalTime, formatSgd, interpretRequest } from "./api";
 import type { Interpretation } from "./api";
-
-const EXAMPLES = [
-  "I have a client meeting in Tokyo tomorrow and need to be there before noon. I can spend up to $500 extra.",
-  "Family holiday with two young kids. Please keep it dependable and don't lose the Fuji tour.",
-  "Just a holiday, keep the extra cost down. I don't mind arriving later.",
-];
 
 const SOURCE_LABEL: Record<Interpretation["source"], string> = {
   llm: "interpreted by the model",
@@ -26,21 +21,44 @@ const SOURCE_LABEL: Record<Interpretation["source"], string> = {
 };
 
 export default function IntentInput({
+  value,
+  onChange,
   onApply,
   disabled,
 }: {
+  value: string;
+  onChange: (text: string) => void;
   onApply: (proposal: Interpretation["proposal"]) => void;
   disabled: boolean;
 }) {
-  const [text, setText] = useState("");
   const [result, setResult] = useState<Interpretation | null>(null);
   const [busy, setBusy] = useState(false);
+  const [edited, setEdited] = useState(false);
+  const lastRead = useRef<string>("");
 
-  async function interpret(value: string) {
+  // Read whatever the traveller told us at booking time, once, on arrival.
+  useEffect(() => {
+    if (!value || lastRead.current === value) return;
+    lastRead.current = value;
     setBusy(true);
-    setResult(null);
+    interpretRequest(value)
+      .then((interpretation) => {
+        setResult(interpretation);
+        onApply(interpretation.proposal);
+      })
+      .catch(() => undefined)
+      .finally(() => setBusy(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function reread() {
+    setBusy(true);
+    setEdited(false);
+    lastRead.current = value;
     try {
-      setResult(await interpretRequest(value));
+      const interpretation = await interpretRequest(value);
+      setResult(interpretation);
+      onApply(interpretation.proposal);
     } catch {
       setResult(null);
     } finally {
@@ -48,60 +66,48 @@ export default function IntentInput({
     }
   }
 
-  const nothingFound = result && Object.keys(result.proposal).length === 0;
+  const found = result && Object.keys(result.proposal).length > 0;
 
   return (
     <section className="card">
       <div className="card-head">
-        <h2>Tell us about this trip</h2>
-        <span className="panel-sub">we propose a mandate, you authorise it</span>
+        <h2>What matters on this trip</h2>
+        <span className="panel-sub">
+          {edited ? "unsaved change" : "from your booking"}
+        </span>
       </div>
 
       <textarea
         className="intent"
         rows={3}
-        value={text}
+        value={value}
         disabled={disabled || busy}
-        placeholder="e.g. I have a client meeting tomorrow and need to land before noon. I can spend up to $500 extra, and I really don't want to lose the Fuji tour."
-        onChange={(event) => setText(event.target.value)}
+        placeholder="Tell us why you are travelling and what you cannot lose."
+        onChange={(event) => {
+          onChange(event.target.value);
+          setEdited(event.target.value !== lastRead.current);
+        }}
       />
 
       <div className="intent-row">
-        <button disabled={disabled || busy || text.trim().length < 3} onClick={() => interpret(text)}>
-          {busy ? "Reading…" : "Interpret"}
+        <button disabled={disabled || busy || !edited || value.trim().length < 3} onClick={reread}>
+          {busy ? "Reading…" : edited ? "Update what matters" : "Up to date"}
         </button>
-        <div className="examples">
-          {EXAMPLES.map((example, i) => (
-            <button
-              key={i}
-              className="chip"
-              disabled={disabled || busy}
-              onClick={() => {
-                setText(example);
-                interpret(example);
-              }}
-            >
-              {i === 0 ? "Business" : i === 1 ? "Family" : "Leisure"}
-            </button>
-          ))}
-        </div>
+        {result && (
+          <span className={`tag ${result.source === "llm" ? "safe" : "at-risk"}`}>
+            {SOURCE_LABEL[result.source]}
+            {result.model ? ` · ${result.model}` : ""}
+          </span>
+        )}
       </div>
 
       {result && (
         <div className="interpretation">
-          <div className="interp-head">
-            <span className="label">Proposed mandate</span>
-            <span className={`tag ${result.source === "llm" ? "safe" : "at-risk"}`}>
-              {SOURCE_LABEL[result.source]}
-              {result.model ? ` · ${result.model}` : ""}
-            </span>
-          </div>
-
           {result.reasons.map((reason, i) => (
             <p key={i} className="interp-reason">{reason}</p>
           ))}
 
-          {!nothingFound && (
+          {found && (
             <dl className="interp-fields">
               {result.proposal.priority && (
                 <div><dt>priority</dt><dd>{result.proposal.priority}</dd></div>
@@ -123,12 +129,6 @@ export default function IntentInput({
               <span className="label">Refused by validation</span>
               {result.rejected.map((r, i) => <p key={i}>{r}</p>)}
             </div>
-          )}
-
-          {!nothingFound && (
-            <button disabled={disabled} onClick={() => onApply(result.proposal)}>
-              Apply to my mandate
-            </button>
           )}
         </div>
       )}

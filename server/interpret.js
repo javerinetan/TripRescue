@@ -83,21 +83,34 @@ const BOOKING_HINTS = [
   ["rental-hakone", /\b(rental|car|drive)\b/i],
 ];
 
+// "The meeting is off" must not read as a business trip. Keyword matching has
+// no idea what negation is, so cancelled clauses are removed before matching.
+const CANCELLED_CLAUSE = /\b[\w' ]{0,24}\b(?:is|are|was|were|got|has been|have been)?\s*(?:off|cancelled|canceled|no longer happening|not happening|fell through|scrapped)\b/gi;
+
+function stripCancelledClauses(text) {
+  return text.replace(CANCELLED_CLAUSE, " ");
+}
+
 /**
  * Keyword extraction. Deliberately conservative: it would rather return nothing
  * for a field than guess it wrong, because a wrong mandate spends real money.
+ * Priorities are scored rather than first-match-wins, so a sentence that
+ * mentions two reasons for travelling resolves to the stronger signal.
  */
 export function parseDeterministically(text) {
   const said = String(text ?? "");
+  const forPriority = stripCancelledClauses(said);
   const proposal = {};
   const reasons = [];
 
-  for (const [id, pattern] of PRIORITY_HINTS) {
-    if (pattern.test(said)) {
-      proposal.priority = id;
-      reasons.push(`Read "${id}" from how the trip was described.`);
-      break;
-    }
+  const scored = PRIORITY_HINTS
+    .map(([id, pattern]) => [id, (forPriority.match(new RegExp(pattern.source, "gi")) ?? []).length])
+    .filter(([, hits]) => hits > 0)
+    .sort((a, b) => b[1] - a[1]);
+
+  if (scored.length > 0) {
+    proposal.priority = scored[0][0];
+    reasons.push(`Read "${scored[0][0]}" from how the trip was described.`);
   }
 
   // "up to $400", "spend 250", "budget of S$300"

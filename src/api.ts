@@ -295,6 +295,7 @@ export interface Trip {
   id: string;
   title: string;
   dates: string;
+  purpose?: string;
   bookingCount: number;
   providerCount: number;
   totalCommitted: Money;

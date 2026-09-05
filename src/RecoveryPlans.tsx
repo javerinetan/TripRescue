@@ -32,6 +32,16 @@ export default function RecoveryPlans({
         <span className="muted small">You choose the trade-off, the agent executes it</span>
       </div>
 
+      {plans.every((plan) => !plan.mandateCompliant) && (
+        <div className="no-viable">
+          <strong>No strategy fits this mandate.</strong>
+          <p>
+            Every option breaks a limit you set. Widen the budget or relax a constraint above,
+            and the agent will re-plan. It will not spend outside what you authorised.
+          </p>
+        </div>
+      )}
+
       <div className="plans">
         {plans.map((plan) => {
           const blocked = !plan.mandateCompliant;

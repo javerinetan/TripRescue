@@ -74,6 +74,8 @@ export default function TripsHome({
                 )}
               </div>
 
+              {trip.purpose && <p className="trip-purpose">“{trip.purpose}”</p>}
+
               <p className="trip-meta">
                 {trip.bookingCount} bookings · {trip.providerCount} providers ·{" "}
                 {formatSgd(trip.totalCommitted.minorUnits)} committed

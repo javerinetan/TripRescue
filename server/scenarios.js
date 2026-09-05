@@ -86,6 +86,10 @@ export const TRIPS = [
     id: "trip-tokyo-sep",
     title: "Tokyo & Hakone",
     dates: "4 – 8 September 2026",
+    purpose:
+      "Client meeting in Tokyo on the 5th, so I need to land before noon. "
+      + "I can spend up to $500 extra if something goes wrong, and the Fuji day "
+      + "is the part we would hate to lose.",
     bookingCount: demoItinerary.length,
     providerCount: new Set(demoItinerary.map((b) => b.provider)).size,
     totalCommitted: sgd(demoItinerary.reduce((t, b) => t + b.cost.minorUnits, 0)),
@@ -95,6 +99,7 @@ export const TRIPS = [
     id: "trip-seoul-sep",
     title: "Seoul weekend",
     dates: "19 – 22 September 2026",
+    purpose: "Just a holiday with friends. Keep the extra cost down, I don't mind arriving later.",
     bookingCount: 3,
     providerCount: 3,
     totalCommitted: sgd(74000),
@@ -104,6 +109,7 @@ export const TRIPS = [
     id: "trip-bali-oct",
     title: "Bali, Ubud",
     dates: "11 – 17 October 2026",
+    purpose: "Family holiday with two young kids. Prefer the dependable option, avoid tight connections.",
     bookingCount: 4,
     providerCount: 4,
     totalCommitted: sgd(128000),

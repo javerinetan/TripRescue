@@ -27,8 +27,8 @@ export default function PrioritySelector({
   return (
     <section className="card">
       <div className="card-head">
-        <h2>What matters on this trip?</h2>
-        <span className="panel-sub">sets the mandate the agent must obey</span>
+        <h2>The mandate this creates</h2>
+        <span className="panel-sub">read from your words — adjust it if we got it wrong</span>
       </div>
 
       <div className="priorities">

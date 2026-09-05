@@ -33,6 +33,7 @@ export default function App() {
   const [incidents, setIncidents] = useState<IncidentSummary[]>([]);
   const [activeIncidentId, setActiveIncidentId] = useState("flight-cancelled");
   const [headline, setHeadline] = useState<string>("");
+  const [purpose, setPurpose] = useState<string>("");
 
   const [priorities, setPriorities] = useState<Priority[]>([]);
   const [priority, setPriority] = useState("leisure");
@@ -84,8 +85,10 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [priority, budget, preserve, deadline, view]);
 
-  async function openRecovery() {
+  async function openRecovery(trip?: Trip) {
     setError(null);
+    // The traveller already told us why they were travelling, at booking time.
+    if (trip?.purpose) setPurpose(trip.purpose);
     try {
       const analysis = await analyzeDisruption();
       setBookings(analysis.bookings);
@@ -150,6 +153,8 @@ export default function App() {
           {bookings.length > 0 && <TripCascade bookings={bookings} assessments={assessments} />}
 
           <IntentInput
+            value={purpose}
+            onChange={setPurpose}
             disabled={authorised}
             onApply={(proposal) => {
               if (proposal.priority) setPriority(proposal.priority);

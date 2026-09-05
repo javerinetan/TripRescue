@@ -75,3 +75,22 @@ test("empty input asks for nothing", async () => {
   assert.equal(result.source, "none");
   assert.deepEqual(result.proposal, {});
 });
+
+test("a cancelled reason for travelling is not read as the reason", () => {
+  const { proposal } = parseDeterministically(
+    "Change of plan, the meeting is off. Just a holiday now, keep the extra cost down.",
+  );
+  assert.equal(proposal.priority, "leisure");
+});
+
+test("the strongest signal wins when a trip mentions two reasons", () => {
+  const { proposal } = parseDeterministically(
+    "Family holiday with the kids and my parents, though I may take one work call.",
+  );
+  assert.equal(proposal.priority, "family");
+});
+
+test("a plain business trip still reads as business", () => {
+  const { proposal } = parseDeterministically("Client meeting in Tokyo, I must be there on time.");
+  assert.equal(proposal.priority, "business");
+});
