@@ -580,11 +580,53 @@ removed is named in `rejected`. Without `ANTHROPIC_API_KEY` a deterministic
 keyword parser is used and `source` says so.
 
 `POST /api/mandates/configure` — `{ priority, maximumAdditionalSpend?,
-arrivalDeadline?, preserveBookingIds? }`. Writes the mandate. Priority supplies
-defaults; supplied fields override them. Priorities permit **tiers**
-(`protected`, `express`, `budget`) which expand to concrete `allowedSupplierIds`
-for whichever supplier category the live incident needs, so `RescueMandate`
-keeps the shape defined above.
+arrivalDeadline?, preserveBookingIds?, allowedTiers? }`. Writes the mandate.
+Priority supplies defaults; supplied fields override them. Priorities permit
+**tiers** (`protected`, `express`, `budget`) which expand to concrete
+`allowedSupplierIds` for whichever supplier category the live incident needs, so
+`RescueMandate` keeps the shape defined above. `allowedTiers` accepts only tiers
+the server publishes — never a raw list of supplier ids from the client.
+
+### Pre-flight: what the agent will not assume
+
+`POST /api/recovery/clarifications` — `{ planId, mandateId? }`. The questions
+worth putting to the traveller before this plan is executed, derived
+deterministically from the plan, the mandate and the strategies the mandate is
+currently refusing. At most three, most material first.
+
+```json
+{
+  "planId": "plan-fastest-001",
+  "questions": [
+    {
+      "id": "unblock-deadline",
+      "question": "Cheapest recovery arrives after your deadline.",
+      "detail": "It lands at 13:30, 90 minutes past the 12:00 you set. It is S$190.00 cheaper than Fastest recovery.",
+      "why": "Arrival time is the one rule I never trade against price.",
+      "options": [
+        { "value": "hold", "label": "Keep the 12:00 deadline", "assumed": true, "effect": "…", "patch": {} },
+        { "value": "extend", "label": "Move the deadline to 14:00", "effect": "…", "patch": { "arrivalDeadline": "…" } }
+      ]
+    }
+  ]
+}
+```
+
+Rules this endpoint holds to, covered by `server/clarify.test.js`:
+
+- Exactly one option per question carries `assumed: true`, and its `patch` is
+  empty — the agent's own default. Confirming every question is one click.
+- A question is only raised when the answer changes the outcome. An empty list
+  means the mandate already decides everything the plan touches.
+- Only rules the traveller set are offered as trades: `budget-exceeded`,
+  `arrival-too-late`, `required-booking-lost`, `supplier-not-allowed`. A plan
+  refused for `wrong-network` or `accommodation-rule-violated` raises nothing,
+  and neither does one where a rule of that kind is among the reasons.
+- `effect` never claims a strategy becomes available when other rules still
+  refuse it; it says how many reasons remain.
+- `patch` is applied by the client to `/api/mandates/configure`, so the mandate
+  is rewritten and re-planned before anything is paid. Nothing here bypasses the
+  mandate — the same checks run again at prepare and at execute.
 
 `GET /api/mandates/:mandateId` — the mandate plus `remaining` budget.
 

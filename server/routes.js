@@ -26,7 +26,7 @@ import {
   parsePaymentSignature,
   toContractRequirement,
 } from "./x402.js";
-import { buildReservationHold, getOffer, getOfferForSupplier, listOffers } from "./suppliers.js";
+import { KNOWN_TIERS, buildReservationHold, getOffer, getOfferForSupplier, listOffers } from "./suppliers.js";
 import {
   DEMO_MANDATE,
   evaluatePurchase,
@@ -63,6 +63,7 @@ import { describeProposal, interpretRequest, llmConfigured } from "./interpret.j
 import { DEFAULT_INCIDENT, TRIPS, getIncident, listIncidents, plansForIncident, policyFor } from "./scenarios.js";
 import { summariseChanges } from "./changes.js";
 import { assessClaim } from "./claims.js";
+import { clarificationsFor } from "./clarify.js";
 
 const CONTRACT_VERSION = "1.0.0";
 const DEMO_RECOVERY_ID = "recovery-tokyo-001";
@@ -342,6 +343,13 @@ export function createRouter({
     if (Array.isArray(req.body?.preserveBookingIds) && req.body.preserveBookingIds.length > 0) {
       overrides.preserveBookingIds = req.body.preserveBookingIds;
     }
+    // Widening the allow-list is a deliberate act by the traveller, so it is
+    // accepted here — but only tiers we actually publish, never a raw list of
+    // supplier ids from the client.
+    const tiers = req.body?.allowedTiers;
+    if (Array.isArray(tiers) && tiers.length > 0 && tiers.every((tier) => KNOWN_TIERS.includes(tier))) {
+      overrides.allowedTiers = [...new Set(tiers)];
+    }
     const mandate = configureMandate({
       priority,
       category: getIncident(activeIncidentId).supplierCategory,
@@ -393,6 +401,39 @@ export function createRouter({
       recoveryId: req.body?.recoveryId ?? DEMO_RECOVERY_ID,
       plans,
       recommendedPlanId: recommended?.id ?? null,
+    });
+  });
+
+  // What the agent will not assume about this plan. Deterministic: the mandate
+  // is the safety story, so the questions about it are derived from policy
+  // rather than from a model that could invent one.
+  router.post("/recovery/clarifications", (req, res) => {
+    const mandate = getMandate(req.body?.mandateId ?? DEMO_MANDATE.id);
+    if (!mandate) return fail(res, 404, "not-found", "No mandate registered.");
+
+    const plans = plansForIncident(activeIncidentId, mandate);
+    const plan = plans.find(({ id }) => id === req.body?.planId);
+    if (!plan) return fail(res, 404, "not-found", `Plan ${req.body?.planId} is unknown for this incident.`);
+
+    const incident = getIncident(activeIncidentId);
+    const assessments = analyzeCancellation({
+      bookings: demoItinerary,
+      canceledBookingId: incident.bookingId,
+      replacementArrivalTime: incident.replacementArrivalTime,
+    });
+
+    res.json({
+      contractVersion: CONTRACT_VERSION,
+      planId: plan.id,
+      questions: clarificationsFor({
+        plan,
+        mandate,
+        plans,
+        bookings: demoItinerary,
+        assessments,
+        offers: listOffers(incident.supplierCategory),
+        incident,
+      }),
     });
   });
 

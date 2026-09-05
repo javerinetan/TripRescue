@@ -1414,3 +1414,170 @@ button.pick:hover:not(:disabled) {
 @media (max-width: 560px) {
   .voucher-qr { float: none; display: block; margin: 0 0 14px; }
 }
+
+/* --- Pre-flight: what the agent will not assume ------------------------- */
+
+.plan.pending {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(0, 103, 229, 0.1);
+}
+
+.clarify {
+  border-color: var(--line-strong);
+  animation: clarify-in 0.28s ease both;
+}
+
+@keyframes clarify-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
+
+.clarify-kicker {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 6px;
+}
+
+.clarify-lede {
+  margin: 4px 0 22px;
+  color: var(--muted);
+  font-size: 14px;
+  max-width: 62ch;
+}
+
+.clarify-list {
+  display: flex;
+  flex-direction: column;
+  border-top: 1px solid var(--line);
+}
+
+.clarify-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  gap: 28px;
+  padding: 20px 0;
+  border-bottom: 1px solid var(--line);
+  /* The left edge is the only thing that moves when an answer stops being the
+     agent's own assumption, so the change is visible without shouting. */
+  border-left: 2px solid transparent;
+  padding-left: 0;
+  transition: border-left-color 0.18s ease, padding-left 0.18s ease;
+}
+
+.clarify-item.edited {
+  border-left-color: var(--accent);
+  padding-left: 14px;
+}
+
+.clarify-q strong {
+  display: block;
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+.clarify-detail {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.clarify-why {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--faint);
+  border-left: 2px solid var(--line-strong);
+  padding-left: 10px;
+}
+
+.clarify-answer select {
+  width: 100%;
+  font-family: var(--sans);
+  font-size: 14px;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-sm);
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.clarify-answer select:hover:not(:disabled) { border-color: var(--accent); }
+.clarify-answer select:focus-visible {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(0, 103, 229, 0.16);
+}
+.clarify-answer select:disabled { opacity: 0.6; cursor: default; }
+
+.clarify-effect {
+  margin: 10px 0 0;
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--muted);
+  background: var(--surface);
+  border-radius: var(--r-sm);
+  padding: 10px 12px;
+}
+
+.clarify-item.edited .clarify-effect {
+  background: var(--accent-wash);
+  color: var(--accent-dark);
+}
+
+.clarify-refused {
+  margin-top: 20px;
+  padding: 16px 18px;
+  border-radius: var(--r-md);
+  background: var(--bad-wash);
+  border: 1px solid rgba(200, 50, 60, 0.28);
+}
+.clarify-refused strong { display: block; color: var(--bad); font-weight: 500; }
+.clarify-refused p { margin: 6px 0 0; font-size: 13px; color: var(--text); }
+
+.clarify-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-top: 22px;
+  flex-wrap: wrap;
+}
+
+.clarify-foot {
+  margin: 14px 0 0;
+  font-size: 12px;
+  color: var(--faint);
+  max-width: 70ch;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (max-width: 720px) {
+  .clarify-item { grid-template-columns: 1fr; gap: 14px; }
+}
+
+.clarify-unlocked {
+  margin-top: 20px;
+  padding: 16px 18px;
+  border-radius: var(--r-md);
+  background: var(--accent-wash);
+  border: 1px solid rgba(0, 103, 229, 0.28);
+}
+.clarify-unlocked strong { display: block; color: var(--accent-dark); font-weight: 500; }
+.clarify-unlocked p { margin: 6px 0 0; font-size: 13px; color: var(--text); }

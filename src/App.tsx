@@ -14,18 +14,20 @@ import {
   analyzeDisruption,
   configureMandate,
   fetchPlans,
+  formatSgd,
   fetchPriorities,
   fetchTrips,
   resetDemo,
   setActiveIncident,
 } from "./api";
-import type { IncidentSummary, Priority, Trip, TripsSummary } from "./api";
+import type { ClarificationPatch, IncidentSummary, Priority, Trip, TripsSummary } from "./api";
 import TripsHome from "./TripsHome";
 import IntentInput from "./IntentInput";
 import PrioritySelector from "./PrioritySelector";
 import TripCascade from "./TripCascade";
 import RecoveryPlans from "./RecoveryPlans";
 import PaymentFlow from "./PaymentFlow";
+import ClarifyBeforeExecute from "./ClarifyBeforeExecute";
 import ClaimSummary from "./ClaimSummary";
 import TripChanges from "./TripChanges";
 import TripImport from "./TripImport";
@@ -65,12 +67,21 @@ export default function App() {
   const [budget, setBudget] = useState(30000);
   const [preserve, setPreserve] = useState<string[]>([]);
   const [deadline, setDeadline] = useState<string | undefined>(undefined);
+  const [tiers, setTiers] = useState<string[] | undefined>(undefined);
 
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [assessments, setAssessments] = useState<BookingAssessment[]>([]);
   const [plans, setPlans] = useState<RecoveryPlan[]>([]);
   const [recommendedPlanId, setRecommendedPlanId] = useState<string | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<RecoveryPlan | null>(null);
+  // A strategy the traveller has picked but not yet authorised. It sits here
+  // while the agent asks what it refuses to assume.
+  const [pendingPlan, setPendingPlan] = useState<RecoveryPlan | null>(null);
+  const [clarifyRefused, setClarifyRefused] = useState<string | null>(null);
+  // A strategy the traveller's answers just made available. Executing the old
+  // choice over the top of it would waste the answer they just gave.
+  const [clarifyUnlocked, setClarifyUnlocked] = useState<string | null>(null);
+  const [clarifyWorking, setClarifyWorking] = useState(false);
   const [authorised, setAuthorised] = useState(false);
   const [deliveredReceipt, setDeliveredReceipt] = useState<ExecutionReceipt | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -110,7 +121,11 @@ export default function App() {
   }, []);
 
   async function refreshPlans() {
-    await configureMandate(priority, budget, { preserveBookingIds: preserve, arrivalDeadline: deadline });
+    await configureMandate(priority, budget, {
+      preserveBookingIds: preserve,
+      arrivalDeadline: deadline,
+      allowedTiers: tiers,
+    });
     const planned = await fetchPlans();
     setPlans(planned.plans);
     setRecommendedPlanId(planned.recommendedPlanId);
@@ -122,7 +137,7 @@ export default function App() {
     if (view !== "recovery" || authorised) return;
     refreshPlans().catch((err) => setError((err as Error).message));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [priority, budget, preserve, deadline, view]);
+  }, [priority, budget, preserve, deadline, tiers, view]);
 
   async function openRecovery(trip?: Trip) {
     setError(null);
@@ -147,6 +162,9 @@ export default function App() {
   async function switchIncident(incidentId: string) {
     await setActiveIncident(incidentId).catch(() => undefined);
     setSelectedPlan(null);
+    setPendingPlan(null);
+    setClarifyRefused(null);
+    setClarifyUnlocked(null);
     setAuthorised(false);
     setDeliveredReceipt(null);
     setSettled(0);
@@ -158,6 +176,9 @@ export default function App() {
   async function backToTrips() {
     await resetDemo().catch(() => undefined);
     setSelectedPlan(null);
+    setPendingPlan(null);
+    setClarifyRefused(null);
+    setClarifyUnlocked(null);
     setAuthorised(false);
     setDeliveredReceipt(null);
     setSettled(0);
@@ -166,6 +187,82 @@ export default function App() {
     setAssessments([]);
     setView("home");
     await loadHome().catch(() => undefined);
+  }
+
+  /**
+   * The traveller has answered the pre-flight questions. Their answers rewrite
+   * the mandate, then the strategy they picked is re-planned against it. If it
+   * no longer complies it is refused here — the mandate is what the agent
+   * obeys, and the traveller just changed it.
+   */
+  async function confirmPlan(plan: RecoveryPlan, patch: ClarificationPatch, force = false) {
+    setClarifyWorking(true);
+    setClarifyRefused(null);
+    setClarifyUnlocked(null);
+    const blockedBefore = new Set(
+      plans.filter((candidate) => !candidate.mandateCompliant).map((candidate) => candidate.id),
+    );
+
+    const nextBudget = patch.budgetMinorUnits ?? budget;
+    const nextDeadline = patch.arrivalDeadline ?? deadline;
+    const nextTiers = patch.allowedTiers ?? tiers;
+    const dropped = new Set(patch.dropPreserve ?? []);
+    const nextPreserve = [
+      ...new Set([...preserve.filter((id) => !dropped.has(id)), ...(patch.addPreserve ?? [])]),
+    ];
+
+    try {
+      await configureMandate(priority, nextBudget, {
+        preserveBookingIds: nextPreserve,
+        arrivalDeadline: nextDeadline,
+        allowedTiers: nextTiers,
+      });
+      const planned = await fetchPlans();
+
+      // Keep the traveller's answers whatever the verdict, so the strategy list
+      // they are looking at is the one their mandate actually produces.
+      setBudget(nextBudget);
+      setDeadline(nextDeadline);
+      setTiers(nextTiers);
+      setPreserve(nextPreserve);
+      setPlans(planned.plans);
+      setRecommendedPlanId(planned.recommendedPlanId);
+
+      const rechecked = planned.plans.find((candidate) => candidate.id === plan.id);
+      if (!rechecked || !rechecked.mandateCompliant) {
+        setClarifyRefused(
+          rechecked?.violations.map((v) => v.explanation).join(" ")
+            ?? "This strategy is no longer available under your mandate.",
+        );
+        return;
+      }
+
+      // Relaxing a rule to unblock a better strategy and then executing the old
+      // one anyway is not what the traveller meant. Stop and let them look.
+      const unlocked = planned.plans
+        .filter((candidate) => candidate.mandateCompliant && blockedBefore.has(candidate.id))
+        .sort((a, b) => a.additionalCost.minorUnits - b.additionalCost.minorUnits)[0];
+      if (!force && unlocked) {
+        const saving = rechecked.additionalCost.minorUnits - unlocked.additionalCost.minorUnits;
+        setClarifyUnlocked(
+          saving > 0
+            ? `${unlocked.title} is now available — ${formatSgd(saving)} cheaper than ${rechecked.title}.`
+            : `${unlocked.title} is now available.`,
+        );
+        return;
+      }
+
+      setDeliveredReceipt(null);
+      setSettled(0);
+      setBoughtOfferId(undefined);
+      setSelectedPlan(rechecked);
+      setPendingPlan(null);
+      setAuthorised(true);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setClarifyWorking(false);
+    }
   }
 
   // Both views are long, so a change of view has to start at the top. Without
@@ -260,6 +357,7 @@ export default function App() {
                 // strategy, so switching priority appeared to do nothing.
                 setPreserve([]);
                 setDeadline(undefined);
+                setTiers(undefined);
               }}
               onBudgetChange={setBudget}
               disabled={authorised}
@@ -272,13 +370,28 @@ export default function App() {
               recommendedPlanId={recommendedPlanId}
               selectedPlanId={selectedPlan?.id ?? null}
               onSelect={(plan) => {
-                setDeliveredReceipt(null);
-                setSettled(0);
-                setBoughtOfferId(undefined);
-                setSelectedPlan(plan);
-                setAuthorised(true);
+                setClarifyRefused(null);
+                setClarifyUnlocked(null);
+                setPendingPlan(plan);
               }}
               disabled={authorised}
+              pendingPlanId={pendingPlan?.id ?? null}
+            />
+          )}
+
+          {pendingPlan && !selectedPlan && (
+            <ClarifyBeforeExecute
+              key={pendingPlan.id}
+              plan={pendingPlan}
+              refused={clarifyRefused}
+              unlocked={clarifyUnlocked}
+              working={clarifyWorking}
+              onConfirm={(patch, force) => confirmPlan(pendingPlan, patch, force)}
+              onCancel={() => {
+                setPendingPlan(null);
+                setClarifyRefused(null);
+                setClarifyUnlocked(null);
+              }}
             />
           )}
 

@@ -100,13 +100,16 @@ export function rankerFor(priorityId) {
 /** The mandate a priority implies, before the traveller edits it. */
 export function mandateFor(priorityId, overrides = {}, category = "transfer") {
   const priority = getPriority(priorityId);
+  // The traveller may widen the allow-list after being told what it costs them
+  // to keep it narrow. The priority supplies the default, never the ceiling.
+  const allowedTiers = overrides.allowedTiers ?? priority.allowedTiers;
   // Tiers expand to concrete supplier ids for whichever kind of thing broke, so
   // docs/API_CONTRACT.md still sees allowedSupplierIds and agent.js is unchanged.
   const allowedSupplierIds = overrides.allowedSupplierIds
-    ?? suppliersForTiers(category, priority.allowedTiers);
+    ?? suppliersForTiers(category, allowedTiers);
   return {
     priority: priority.id,
-    allowedTiers: priority.allowedTiers,
+    allowedTiers,
     maximumAdditionalSpend: overrides.maximumAdditionalSpend ?? priority.maximumAdditionalSpend,
     arrivalDeadline: overrides.arrivalDeadline ?? priority.arrivalDeadline,
     allowedSupplierIds,

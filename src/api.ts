@@ -260,7 +260,7 @@ export async function fetchPriorities(): Promise<{ priorities: Priority[]; defau
 export async function configureMandate(
   priority: string,
   budgetMinorUnits?: number,
-  extras: { preserveBookingIds?: string[]; arrivalDeadline?: string } = {},
+  extras: { preserveBookingIds?: string[]; arrivalDeadline?: string; allowedTiers?: string[] } = {},
 ): Promise<RescueMandate> {
   const { data } = await call<{ mandate: RescueMandate }>("/api/mandates/configure", {
     method: "POST",
@@ -271,9 +271,45 @@ export async function configureMandate(
       ...(budgetMinorUnits ? { maximumAdditionalSpend: { currency: "SGD", minorUnits: budgetMinorUnits } } : {}),
       ...(extras.preserveBookingIds?.length ? { preserveBookingIds: extras.preserveBookingIds } : {}),
       ...(extras.arrivalDeadline ? { arrivalDeadline: extras.arrivalDeadline } : {}),
+      ...(extras.allowedTiers?.length ? { allowedTiers: extras.allowedTiers } : {}),
     }),
   });
   return data.mandate;
+}
+
+/** A patch a clarification answer applies to the mandate. */
+export interface ClarificationPatch {
+  addPreserve?: string[];
+  dropPreserve?: string[];
+  arrivalDeadline?: string;
+  budgetMinorUnits?: number;
+  allowedTiers?: string[];
+}
+
+export interface ClarificationOption {
+  value: string;
+  label: string;
+  effect: string;
+  assumed?: boolean;
+  patch: ClarificationPatch;
+}
+
+export interface Clarification {
+  id: string;
+  question: string;
+  detail: string;
+  why: string;
+  options: ClarificationOption[];
+}
+
+/** What the agent refuses to assume about a plan before it spends anything. */
+export async function fetchClarifications(planId: string): Promise<Clarification[]> {
+  const { data } = await call<{ questions: Clarification[] }>("/api/recovery/clarifications", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ contractVersion: "1.0.0", planId, mandateId: MANDATE_ID }),
+  });
+  return data.questions;
 }
 
 export interface Interpretation {

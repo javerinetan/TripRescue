@@ -125,10 +125,44 @@ The agent then:
 The traveller makes one strategic decision. The agent does the operational and
 economic work inside explicit limits.
 
-**4b. The agent works alone.** Authorising is the go-ahead — there is no second
+**4a. Pre-flight — what the agent will not assume.** Before money moves, the
+agent states the things its decision rested on that the mandate does not settle,
+as dropdowns with its own assumption already selected. Agreeing is one click; it
+asks nothing when there is nothing to ask.
+
+The useful questions are about the strategies the mandate is *refusing*. A
+traveller who cannot see why the cheapest option disappeared has no reason to
+trust the ones that remain, so the agent names the rule and prices the trade:
+
+```
+Cheapest recovery arrives after your deadline.
+  It lands 13:30, 90 minutes past the 12:00 you set. It is S$190 cheaper.
+  ▸ Keep the 12:00 deadline (my assumption)
+    Move the deadline to 14:00
+       → One of 2 reasons Cheapest is refused. Answer the other and it opens up.
+
+Cheapest recovery cannot save your Mount Fuji activity.
+  ▸ Keep protecting Mount Fuji activity (my assumption)
+    Stop protecting Mount Fuji activity
+       → S$120 would move onto your insurance claim.
+```
+
+Answers rewrite the mandate and re-plan. Relaxing a rule that opens up a better
+strategy **stops** rather than executing the old choice over the top of it. Only
+rules the traveller set are tradeable here — the network and the accommodation
+rule are not — and whatever they answer, the mandate is checked again at prepare
+and again before signing. This screen can make the mandate stricter or looser,
+never optional.
+
+**4b. The agent works alone.** Confirming is the go-ahead — there is no second
 button. It reads a supplier registry it was not provisioned with, is challenged
 with `402`, re-checks the mandate at the moment money would move, signs, and the
 supplier settles and verifies on-ledger before releasing anything.
+
+**4c. Overriding the agent's supplier.** The agent's pick is not final. Every
+eligible supplier it did not choose offers *Use this instead*, and the mandate is
+re-checked either way — one outside it is still refused, with the violation
+named.
 
 **5. What changed.** After settlement the traveller sees the specifics, not a
 success message: which booking went, what replaced it, from which provider, at
@@ -149,8 +183,9 @@ cancellation notices and the on-chain receipt attached; **automatic filing is
 not built.**
 
 **7. A confirmation you can show.** The reservation the supplier released, with
-its reference, validity and the ledger transaction — printable, and verifiable
-by the provider against the transaction without contacting Trip Rescue.
+its reference, validity, the ledger transaction and a **QR code** that resolves
+to that transaction in the public explorer — printable, and verifiable by the
+provider without contacting Trip Rescue.
 
 ## Architecture
 
@@ -303,6 +338,8 @@ Release-blocking invariants, each covered by tests:
 | 5b | The agent cannot pay for a supplier it did not itself choose | `prepare` refuses any requirement with no recorded decision |
 | 6 | Wallet seeds stay server-side | never returned by any route; `.env` gitignored |
 | 7 | Every economic decision has an inspectable reason | decision trace in the UI |
+| 8 | The pre-flight can tighten or loosen the mandate, never bypass it | `clarify.js` only ever emits patches applied through `/mandates/configure` |
+| 9 | A rule the traveller did not set is never offered as a trade | `clarify.test.js`: `wrong-network` and accommodation rules raise nothing |
 
 Budget is reserved *before* submission, so concurrent requests cannot
  double-spend the mandate. A known pre-submission failure releases the
@@ -400,6 +437,7 @@ server/scenarios.js    trips, incidents and per-incident recovery plans
 server/claims.js       what remains recoverable, against the trip's policy
 server/changes.js      before and after of what the agent changed
 server/mandate.js      deterministic mandate enforcement
+server/clarify.js      what the agent refuses to assume, before it spends
 server/x402.js         x402 wire format, the one translation point
 server/xrpl.js         sign, submit, verify on XRPL Testnet
 server/suppliers.js    simulated suppliers + runtime registry

@@ -163,6 +163,9 @@ export function listOffers(category) {
 }
 
 /** Concrete supplier ids for a category, restricted to the permitted tiers. */
+/** The service levels a traveller may authorise, weakest cover last. */
+export const KNOWN_TIERS = Object.freeze(["protected", "express", "budget"]);
+
 export function suppliersForTiers(category, tiers) {
   return listOffers(category)
     .filter((offer) => tiers.includes(offer.tier))

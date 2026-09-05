@@ -18,18 +18,22 @@ export default function RecoveryPlans({
   selectedPlanId,
   onSelect,
   disabled,
+  pendingPlanId,
 }: {
   plans: RecoveryPlan[];
   recommendedPlanId: string | null;
   selectedPlanId: string | null;
   onSelect: (plan: RecoveryPlan) => void;
   disabled: boolean;
+  // Picked, but not yet authorised: the agent is asking what it will not
+  // assume before this one costs anybody anything.
+  pendingPlanId: string | null;
 }) {
   return (
     <section className="card">
       <div className="card-head">
         <h2>Whole-trip recovery strategies</h2>
-        <span className="muted small">You choose the trade-off, the agent executes it</span>
+        <span className="muted small">You choose the trade-off, the agent confirms, then executes</span>
       </div>
 
       {plans.every((plan) => !plan.mandateCompliant) && (
@@ -46,10 +50,11 @@ export default function RecoveryPlans({
         {plans.map((plan) => {
           const blocked = !plan.mandateCompliant;
           const selected = plan.id === selectedPlanId;
+          const pending = plan.id === pendingPlanId;
           return (
             <article
               key={plan.id}
-              className={`plan ${blocked ? "blocked" : ""} ${selected ? "selected" : ""}`}
+              className={`plan ${blocked ? "blocked" : ""} ${selected ? "selected" : ""} ${pending ? "pending" : ""}`}
             >
               <header>
                 <span className="plan-kind">{KIND_LABEL[plan.kind]}</span>
@@ -84,7 +89,7 @@ export default function RecoveryPlans({
                 </div>
               ) : (
                 <button disabled={disabled} onClick={() => onSelect(plan)}>
-                  {selected ? "Authorised" : "Authorise this plan"}
+                  {selected ? "Authorised" : pending ? "Confirming below" : "Choose this plan"}
                 </button>
               )}
             </article>
