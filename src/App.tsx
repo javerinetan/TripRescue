@@ -1,9 +1,23 @@
-// The full Trip Rescue journey:
-//   priority -> cancellation -> cascade -> strategies -> mandate -> x402 -> XRPL -> delivery
+// Trip Rescue.
+//
+//   home      trips under monitoring; a disruption arrives
+//   recovery  cascade -> strategies -> mandate -> x402 -> XRPL -> delivery
+//
+// The traveller never triggers the disruption. That matters: the product is a
+// monitor, and a demo where you press "cancel my flight" tells the wrong story.
 
 import { useEffect, useState } from "react";
-import { analyzeDisruption, configureMandate, fetchPlans, fetchPriorities, resetDemo } from "./api";
-import type { Priority } from "./api";
+import {
+  analyzeDisruption,
+  configureMandate,
+  fetchPlans,
+  fetchPriorities,
+  fetchTrips,
+  resetDemo,
+  setActiveIncident,
+} from "./api";
+import type { IncidentSummary, Priority, Trip } from "./api";
+import TripsHome from "./TripsHome";
 import IntentInput from "./IntentInput";
 import PrioritySelector from "./PrioritySelector";
 import TripCascade from "./TripCascade";
@@ -11,24 +25,38 @@ import RecoveryPlans from "./RecoveryPlans";
 import PaymentFlow from "./PaymentFlow";
 import type { Booking, BookingAssessment, RecoveryPlan } from "./types";
 
+type View = "home" | "recovery";
+
 export default function App() {
+  const [view, setView] = useState<View>("home");
+  const [trips, setTrips] = useState<Trip[]>([]);
+  const [incidents, setIncidents] = useState<IncidentSummary[]>([]);
+  const [activeIncidentId, setActiveIncidentId] = useState("flight-cancelled");
+  const [headline, setHeadline] = useState<string>("");
+
   const [priorities, setPriorities] = useState<Priority[]>([]);
   const [priority, setPriority] = useState("leisure");
   const [budget, setBudget] = useState(30000);
+  const [preserve, setPreserve] = useState<string[]>([]);
+  const [deadline, setDeadline] = useState<string | undefined>(undefined);
+
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [assessments, setAssessments] = useState<BookingAssessment[]>([]);
   const [plans, setPlans] = useState<RecoveryPlan[]>([]);
   const [recommendedPlanId, setRecommendedPlanId] = useState<string | null>(null);
   const [selectedPlan, setSelectedPlan] = useState<RecoveryPlan | null>(null);
-  const [phase, setPhase] = useState<"idle" | "loading" | "cascade" | "authorised">("idle");
+  const [authorised, setAuthorised] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [preserve, setPreserve] = useState<string[]>([]);
-  const [deadline, setDeadline] = useState<string | undefined>(undefined);
+
+  async function loadHome() {
+    const data = await fetchTrips();
+    setTrips(data.trips);
+    setIncidents(data.incidents);
+    setActiveIncidentId(data.activeIncidentId);
+  }
 
   useEffect(() => {
-    analyzeDisruption()
-      .then((analysis) => setBookings(analysis.bookings))
-      .catch(() => setError("API not reachable. Start it with npm run dev."));
+    loadHome().catch(() => setError("API not reachable. Start it with npm run dev."));
     fetchPriorities()
       .then((data) => {
         setPriorities(data.priorities);
@@ -41,14 +69,6 @@ export default function App() {
       .catch(() => undefined);
   }, []);
 
-  function choosePriority(id: string) {
-    setPriority(id);
-    const match = priorities.find((p) => p.id === id);
-    if (match) setBudget(match.suggestedBudget.minorUnits);
-  }
-
-  // Re-plan whenever the mandate inputs change, so the traveller sees the
-  // consequence of their own choice before authorising anything.
   async function refreshPlans() {
     await configureMandate(priority, budget, { preserveBookingIds: preserve, arrivalDeadline: deadline });
     const planned = await fetchPlans();
@@ -56,33 +76,44 @@ export default function App() {
     setRecommendedPlanId(planned.recommendedPlanId);
   }
 
+  // Re-plan whenever the mandate inputs change, so the traveller sees the
+  // consequence of their own choice before authorising anything.
   useEffect(() => {
-    if (phase !== "cascade") return;
+    if (view !== "recovery" || authorised) return;
     refreshPlans().catch((err) => setError((err as Error).message));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [priority, budget, preserve, deadline, phase]);
+  }, [priority, budget, preserve, deadline, view]);
 
-  async function triggerCancellation() {
-    setPhase("loading");
+  async function openRecovery() {
     setError(null);
     try {
       const analysis = await analyzeDisruption();
       setBookings(analysis.bookings);
       setAssessments(analysis.assessments);
+      setHeadline(analysis.incident?.headline ?? "");
       await refreshPlans();
-      setPhase("cascade");
+      setView("recovery");
     } catch (err) {
       setError((err as Error).message);
-      setPhase("idle");
     }
   }
 
-  async function startOver() {
-    await resetDemo().catch(() => undefined);
-    setAssessments([]);
-    setPlans([]);
+  async function switchIncident(incidentId: string) {
+    await setActiveIncident(incidentId).catch(() => undefined);
     setSelectedPlan(null);
-    setPhase("idle");
+    setAuthorised(false);
+    setPlans([]);
+    await loadHome().catch(() => undefined);
+  }
+
+  async function backToTrips() {
+    await resetDemo().catch(() => undefined);
+    setSelectedPlan(null);
+    setAuthorised(false);
+    setPlans([]);
+    setAssessments([]);
+    setView("home");
+    await loadHome().catch(() => undefined);
   }
 
   return (
@@ -94,64 +125,71 @@ export default function App() {
 
       {error && <div className="card warn"><p>{error}</p></div>}
 
-      <div className="flow">
-        <section className="card trigger">
-          <div className="card-head">
-            <h2>Singapore → Tokyo, 5 September</h2>
-            <div className="actions">
-              {phase === "idle" ? (
-                <button onClick={triggerCancellation}>Cancel flight SQ634</button>
-              ) : (
-                <button className="ghost" onClick={startOver}>Start over</button>
-              )}
+      {view === "home" ? (
+        <div className="flow">
+          <TripsHome
+            trips={trips}
+            incidents={incidents}
+            activeIncidentId={activeIncidentId}
+            onOpen={openRecovery}
+            onSwitchIncident={switchIncident}
+          />
+        </div>
+      ) : (
+        <div className="flow">
+          <section className="card trigger">
+            <div className="card-head">
+              <h2>{headline}</h2>
+              <button className="ghost" onClick={backToTrips}>Back to my trips</button>
             </div>
-          </div>
-          <p className="muted small">
-            Five bookings from five unrelated providers. Each provider sees only its own
-            reservation.
-          </p>
-        </section>
+            <p className="muted small">
+              Trip Rescue detected this and worked out what it affects across every provider.
+            </p>
+          </section>
 
-        <IntentInput
-          disabled={phase === "authorised"}
-          onApply={(proposal) => {
-            if (proposal.priority) setPriority(proposal.priority);
-            if (proposal.maximumAdditionalSpend) setBudget(proposal.maximumAdditionalSpend.minorUnits);
-            if (proposal.preserveBookingIds) setPreserve(proposal.preserveBookingIds);
-            if (proposal.arrivalDeadline) setDeadline(proposal.arrivalDeadline);
-          }}
-        />
+          {bookings.length > 0 && <TripCascade bookings={bookings} assessments={assessments} />}
 
-        {priorities.length > 0 && (
-          <PrioritySelector
-            priorities={priorities}
-            selected={priority}
-            budget={budget}
-            onSelect={choosePriority}
-            onBudgetChange={setBudget}
-            disabled={phase === "authorised"}
-          />
-        )}
-
-        {phase === "loading" && <div className="card"><p className="muted">Analysing the cascade…</p></div>}
-
-        {bookings.length > 0 && <TripCascade bookings={bookings} assessments={assessments} />}
-
-        {plans.length > 0 && (
-          <RecoveryPlans
-            plans={plans}
-            recommendedPlanId={recommendedPlanId}
-            selectedPlanId={selectedPlan?.id ?? null}
-            onSelect={(plan) => {
-              setSelectedPlan(plan);
-              setPhase("authorised");
+          <IntentInput
+            disabled={authorised}
+            onApply={(proposal) => {
+              if (proposal.priority) setPriority(proposal.priority);
+              if (proposal.maximumAdditionalSpend) setBudget(proposal.maximumAdditionalSpend.minorUnits);
+              if (proposal.preserveBookingIds) setPreserve(proposal.preserveBookingIds);
+              if (proposal.arrivalDeadline) setDeadline(proposal.arrivalDeadline);
             }}
-            disabled={phase === "authorised"}
           />
-        )}
 
-        {selectedPlan && <PaymentFlow key={selectedPlan.id} planId={selectedPlan.id} />}
-      </div>
+          {priorities.length > 0 && (
+            <PrioritySelector
+              priorities={priorities}
+              selected={priority}
+              budget={budget}
+              onSelect={(id) => {
+                setPriority(id);
+                const match = priorities.find((p) => p.id === id);
+                if (match) setBudget(match.suggestedBudget.minorUnits);
+              }}
+              onBudgetChange={setBudget}
+              disabled={authorised}
+            />
+          )}
+
+          {plans.length > 0 && (
+            <RecoveryPlans
+              plans={plans}
+              recommendedPlanId={recommendedPlanId}
+              selectedPlanId={selectedPlan?.id ?? null}
+              onSelect={(plan) => {
+                setSelectedPlan(plan);
+                setAuthorised(true);
+              }}
+              disabled={authorised}
+            />
+          )}
+
+          {selectedPlan && <PaymentFlow key={selectedPlan.id} planId={selectedPlan.id} />}
+        </div>
+      )}
     </main>
   );
 }

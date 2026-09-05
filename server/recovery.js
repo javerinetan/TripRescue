@@ -72,9 +72,11 @@ export const demoMandate = {
   network: "xrpl:1",
 };
 
+// Wording stays incident-neutral: the same engine now serves a cancelled
+// flight, a withdrawn rental car and a cancelled tour.
 const explanations = {
-  "service-cancelled": "The original flight was cancelled.",
-  "time-window-missed": "The replacement flight arrives after this booking starts.",
+  "service-cancelled": "The provider cancelled this booking.",
+  "time-window-missed": "The recovery arrives after this booking starts.",
   "no-show-risk": "The delayed arrival creates a no-show risk that requires intervention.",
   "dependency-at-risk": "An upstream disruption puts this booking at risk and requires a change.",
   unaffected: "The booking remains feasible after the disruption.",

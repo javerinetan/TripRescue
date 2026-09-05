@@ -55,9 +55,15 @@ import { FAULT_MODES, clearFault, currentFault, setFault, shouldFail } from "./f
 import { NoCompliantOfferError, decideSupplierOffer } from "./agent.js";
 import { DEFAULT_PRIORITY, getPriority, listPriorities, rankerFor } from "./priorities.js";
 import { describeProposal, interpretRequest, llmConfigured } from "./interpret.js";
+import { DEFAULT_INCIDENT, TRIPS, getIncident, listIncidents, plansForIncident } from "./scenarios.js";
 
 const CONTRACT_VERSION = "1.0.0";
 const DEMO_RECOVERY_ID = "recovery-tokyo-001";
+
+// Which incident is currently surfaced. Trip Rescue is a monitor, so the
+// disruption arrives rather than being chosen mid-flow; this is the demo's way
+// of deciding which one arrives.
+let activeIncidentId = DEFAULT_INCIDENT;
 
 /**
  * Compares the client's echoed `accepted` block against the requirement this
@@ -90,7 +96,7 @@ export function createRouter() {
   router.get("/suppliers/registry", (_req, res) => {
     res.json({
       contractVersion: CONTRACT_VERSION,
-      suppliers: listOffers().map((offer) => ({
+      suppliers: listOffers(getIncident(activeIncidentId).supplierCategory).map((offer) => ({
         id: offer.id,
         supplierId: offer.supplierId,
         title: offer.title,
@@ -104,6 +110,41 @@ export function createRouter() {
         preservesBookingIds: offer.preservesBookingIds,
       })),
     });
+  });
+
+  // --- Monitoring home ------------------------------------------------------
+
+  router.get("/trips", (_req, res) => {
+    const incident = getIncident(activeIncidentId);
+    res.json({
+      contractVersion: CONTRACT_VERSION,
+      trips: TRIPS.map((trip) => ({
+        ...trip,
+        alert: trip.id === incident.tripId
+          ? {
+            incidentId: incident.id,
+            severity: incident.severity,
+            headline: incident.headline,
+            detail: incident.detail,
+            source: incident.source,
+            detectedMinutesAgo: incident.detectedMinutesAgo,
+          }
+          : null,
+      })),
+      incidents: listIncidents(),
+      activeIncidentId: incident.id,
+    });
+  });
+
+  // Choose which monitored incident is live. A demo affordance, not a product
+  // feature: in production the feeds decide this.
+  router.post("/incidents/active", (req, res) => {
+    const incident = getIncident(req.body?.incidentId);
+    activeIncidentId = incident.id;
+    resetMandates();
+    resetExecutions();
+    clearFault();
+    res.json({ contractVersion: CONTRACT_VERSION, activeIncidentId: incident.id, incident });
   });
 
   // --- Traveller priorities -------------------------------------------------
@@ -143,7 +184,11 @@ export function createRouter() {
     if (Array.isArray(req.body?.preserveBookingIds) && req.body.preserveBookingIds.length > 0) {
       overrides.preserveBookingIds = req.body.preserveBookingIds;
     }
-    const mandate = configureMandate({ priority, ...overrides });
+    const mandate = configureMandate({
+      priority,
+      category: getIncident(activeIncidentId).supplierCategory,
+      ...overrides,
+    });
     res.json({
       contractVersion: CONTRACT_VERSION,
       mandate,
@@ -156,8 +201,9 @@ export function createRouter() {
   router.post("/recovery/analyze", (req, res) => {
     const { trigger, bookings } = req.body ?? {};
     const itinerary = Array.isArray(bookings) && bookings.length > 0 ? bookings : demoItinerary;
-    const canceledBookingId = trigger?.bookingId ?? "flight-sin-nrt";
-    const replacementArrivalTime = trigger?.replacementArrivalTime ?? "2026-09-05T09:30:00+09:00";
+    const incident = getIncident(trigger?.incidentId ?? activeIncidentId);
+    const canceledBookingId = trigger?.bookingId ?? incident.bookingId;
+    const replacementArrivalTime = trigger?.replacementArrivalTime ?? incident.replacementArrivalTime;
 
     if (!itinerary.some((booking) => booking.id === canceledBookingId)) {
       return fail(res, 400, "invalid-request", `${canceledBookingId} is not in this itinerary.`);
@@ -166,6 +212,7 @@ export function createRouter() {
     res.json({
       contractVersion: CONTRACT_VERSION,
       recoveryId: DEMO_RECOVERY_ID,
+      incident,
       bookings: itinerary,
       assessments: analyzeCancellation({ bookings: itinerary, canceledBookingId, replacementArrivalTime }),
     });
@@ -175,7 +222,7 @@ export function createRouter() {
     const mandate = req.body?.mandate ?? getMandate(DEMO_MANDATE.id);
     if (!mandate) return fail(res, 404, "not-found", "No mandate supplied and no demo mandate registered.");
 
-    const plans = generateRecoveryPlans(mandate);
+    const plans = plansForIncident(activeIncidentId, mandate);
     const compliant = plans.filter((plan) => plan.mandateCompliant);
     // Recommend the compliant plan that matches the traveller's priority, and
     // fall back to the lowest-risk compliant plan when that kind is not viable.
@@ -199,11 +246,11 @@ export function createRouter() {
     const mandate = getMandate(mandateId);
     if (!mandate) return fail(res, 404, "not-found", `Mandate ${mandateId} is unknown.`);
 
-    const planId = req.body?.planId ?? "plan-reliable-001";
-    const plan = generateRecoveryPlans(mandate).find(({ id }) => id === planId);
-    if (!plan) return fail(res, 404, "not-found", `Plan ${planId} is unknown.`);
+    const plans = plansForIncident(activeIncidentId, mandate);
+    const plan = plans.find(({ id }) => id === req.body?.planId) ?? plans[0];
+    if (!plan) return fail(res, 404, "not-found", "No plan is available for this incident.");
 
-    const offers = listOffers();
+    const offers = listOffers(getIncident(activeIncidentId).supplierCategory);
     try {
       const ranker = rankerFor(mandate.priority ?? DEFAULT_PRIORITY);
       const decision = await decideSupplierOffer({ offers, plan, mandate, ranker });
@@ -255,6 +302,7 @@ export function createRouter() {
     resetMandates();
     resetExecutions();
     clearFault();
+    activeIncidentId = DEFAULT_INCIDENT;
     res.json({ contractVersion: CONTRACT_VERSION, reset: true, mandate: DEMO_MANDATE });
   });
 

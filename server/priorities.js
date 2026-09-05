@@ -9,6 +9,8 @@
 // The ranking is deterministic policy. It plugs into agent.js's `ranker` hook,
 // which keeps the safe fallback in place if it ever returns something invalid.
 
+import { suppliersForTiers } from "./suppliers.js";
+
 const sgd = (minorUnits) => ({ currency: "SGD", minorUnits });
 
 export const PRIORITIES = Object.freeze({
@@ -18,7 +20,7 @@ export const PRIORITIES = Object.freeze({
     summary: "Keep the extra cost down. I can absorb some delay.",
     maximumAdditionalSpend: sgd(30000),
     arrivalDeadline: "2026-09-05T12:00:00+09:00",
-    allowedSupplierIds: ["supplier-protected-transfer"],
+    allowedTiers: ["protected"],
     preferredPlanKind: "cheapest",
     rank: "cost",
   },
@@ -28,7 +30,7 @@ export const PRIORITIES = Object.freeze({
     summary: "Arrive as early as possible. Cost matters less than the meeting.",
     maximumAdditionalSpend: sgd(60000),
     arrivalDeadline: "2026-09-05T12:00:00+09:00",
-    allowedSupplierIds: ["supplier-protected-transfer", "supplier-express-rail"],
+    allowedTiers: ["protected", "express"],
     preferredPlanKind: "fastest",
     rank: "time",
   },
@@ -38,11 +40,7 @@ export const PRIORITIES = Object.freeze({
     summary: "Prefer the most dependable option. Avoid tight connections.",
     maximumAdditionalSpend: sgd(45000),
     arrivalDeadline: "2026-09-05T12:00:00+09:00",
-    allowedSupplierIds: [
-      "supplier-protected-transfer",
-      "supplier-express-rail",
-      "supplier-flex-transfer",
-    ],
+    allowedTiers: ["protected", "budget"],
     preferredPlanKind: "most-reliable",
     rank: "risk",
   },
@@ -97,13 +95,18 @@ export function rankerFor(priorityId) {
 }
 
 /** The mandate a priority implies, before the traveller edits it. */
-export function mandateFor(priorityId, overrides = {}) {
+export function mandateFor(priorityId, overrides = {}, category = "transfer") {
   const priority = getPriority(priorityId);
+  // Tiers expand to concrete supplier ids for whichever kind of thing broke, so
+  // docs/API_CONTRACT.md still sees allowedSupplierIds and agent.js is unchanged.
+  const allowedSupplierIds = overrides.allowedSupplierIds
+    ?? suppliersForTiers(category, priority.allowedTiers);
   return {
     priority: priority.id,
+    allowedTiers: priority.allowedTiers,
     maximumAdditionalSpend: overrides.maximumAdditionalSpend ?? priority.maximumAdditionalSpend,
     arrivalDeadline: overrides.arrivalDeadline ?? priority.arrivalDeadline,
-    allowedSupplierIds: overrides.allowedSupplierIds ?? priority.allowedSupplierIds,
+    allowedSupplierIds,
     ...(overrides.preserveBookingIds ? { preserveBookingIds: overrides.preserveBookingIds } : {}),
   };
 }

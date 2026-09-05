@@ -34,8 +34,8 @@ export function resetMandates() {
  * traveller made. Spend resets, because a re-authorised mandate is a new
  * authorisation, not a continuation of the old one.
  */
-export function configureMandate({ priority = DEFAULT_PRIORITY, ...overrides } = {}) {
-  const derived = mandateFor(priority, overrides);
+export function configureMandate({ priority = DEFAULT_PRIORITY, category = "transfer", ...overrides } = {}) {
+  const derived = mandateFor(priority, overrides, category);
   const mandate = Object.freeze({
     ...DEMO_MANDATE,
     ...derived,

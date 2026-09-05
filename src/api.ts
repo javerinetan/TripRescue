@@ -133,6 +133,7 @@ export function formatSgd(minorUnits: number): string {
 
 export async function analyzeDisruption(): Promise<{
   recoveryId: string;
+  incident?: { headline: string; detail: string; severity: string };
   bookings: import("./types").Booking[];
   assessments: import("./types").BookingAssessment[];
 }> {
@@ -141,11 +142,6 @@ export async function analyzeDisruption(): Promise<{
     headers: { "content-type": "application/json" },
     body: JSON.stringify({
       contractVersion: "1.0.0",
-      trigger: {
-        type: "flight-cancelled",
-        bookingId: "flight-sin-nrt",
-        replacementArrivalTime: "2026-09-05T09:30:00+09:00",
-      },
       bookings: [],
     }),
   });
@@ -284,4 +280,50 @@ export async function interpretRequest(text: string): Promise<Interpretation> {
     body: JSON.stringify({ contractVersion: "1.0.0", text }),
   });
   return data as never;
+}
+
+export interface TripAlert {
+  incidentId: string;
+  severity: "critical" | "high" | "moderate";
+  headline: string;
+  detail: string;
+  source: string;
+  detectedMinutesAgo: number;
+}
+
+export interface Trip {
+  id: string;
+  title: string;
+  dates: string;
+  bookingCount: number;
+  providerCount: number;
+  totalCommitted: Money;
+  monitored: boolean;
+  alert: TripAlert | null;
+}
+
+export interface IncidentSummary {
+  id: string;
+  headline: string;
+  detail: string;
+  severity: string;
+  source: string;
+  detectedMinutesAgo: number;
+}
+
+export async function fetchTrips(): Promise<{
+  trips: Trip[];
+  incidents: IncidentSummary[];
+  activeIncidentId: string;
+}> {
+  const { data } = await call<never>("/api/trips");
+  return data as never;
+}
+
+export async function setActiveIncident(incidentId: string): Promise<void> {
+  await call("/api/incidents/active", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ contractVersion: "1.0.0", incidentId }),
+  });
 }
