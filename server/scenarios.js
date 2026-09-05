@@ -39,6 +39,7 @@ export const INCIDENTS = {
     bookingId: "flight-sin-nrt",
     replacementArrivalTime: "2026-09-05T09:30:00+09:00",
     supplierCategory: "transfer",
+    replacesBookingId: "bus-nrt-hakone",
     detectedMinutesAgo: 2,
   },
   "rental-unavailable": {
@@ -51,6 +52,7 @@ export const INCIDENTS = {
     bookingId: "rental-hakone",
     replacementArrivalTime: "2026-09-05T10:30:00+09:00",
     supplierCategory: "rental",
+    replacesBookingId: "rental-hakone",
     detectedMinutesAgo: 6,
   },
   "activity-cancelled": {
@@ -63,6 +65,7 @@ export const INCIDENTS = {
     bookingId: "activity-fuji",
     replacementArrivalTime: "2026-09-05T12:00:00+09:00",
     supplierCategory: "activity",
+    replacesBookingId: "activity-fuji",
     detectedMinutesAgo: 11,
   },
 };
@@ -80,6 +83,26 @@ export function listIncidents() {
 }
 
 // --- trips under monitoring --------------------------------------------------
+
+// The cover the traveller actually bought. Claim guidance is worthless if it
+// ignores the policy, and every policy has an excess and a filing window.
+export const POLICIES = {
+  "trip-tokyo-sep": {
+    insurer: "Meridian Travel Cover",
+    product: "Standard",
+    reference: "MTC-4471-SG",
+    perTripLimit: sgd(500000),
+    excess: sgd(5000),
+    filingWindowDays: 21,
+    typicalSettlementDays: 3,
+    covers: ["trip-disruption", "additional-transport", "missed-activity"],
+    excludes: ["refundable-losses", "voluntary-changes"],
+  },
+};
+
+export function policyFor(tripId) {
+  return POLICIES[tripId] ?? null;
+}
 
 export const TRIPS = [
   {

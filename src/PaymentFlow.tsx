@@ -35,7 +35,13 @@ const STEPS: { id: string; label: string }[] = [
 
 type Log = { id: number; kind: "info" | "decision" | "refusal" | "money" | "error"; text: string };
 
-export default function PaymentFlow({ planId, onComplete }: { planId: string; onComplete?: () => void }) {
+export default function PaymentFlow({
+  planId,
+  onComplete,
+}: {
+  planId: string;
+  onComplete?: (offerId: string) => void;
+}) {
   const started = useRef(false);
   const [mandate, setMandate] = useState<RescueMandate | null>(null);
   const [remaining, setRemaining] = useState<number | null>(null);
@@ -157,7 +163,7 @@ export default function PaymentFlow({ planId, onComplete }: { planId: string; on
 
       const fresh = await fetchMandate();
       setRemaining(fresh.remaining.minorUnits);
-      onComplete?.();
+      onComplete?.(offer.id);
     } catch (error) {
       const failure = error as ApiFailure;
       const blocked = failure.code === "mandate-violation";

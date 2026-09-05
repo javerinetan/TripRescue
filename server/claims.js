@@ -17,7 +17,7 @@ const sgd = (minorUnits) => ({ currency: "SGD", minorUnits });
  * `spentMinorUnits` is what the agent spent recovering the trip, which is
  * itself usually the strongest line on a disruption claim.
  */
-export function assessClaim({ bookings, assessments, spentMinorUnits = 0 }) {
+export function assessClaim({ bookings, assessments, spentMinorUnits = 0, policy = null }) {
   const byId = new Map(assessments.map((a) => [a.bookingId, a]));
   const items = [];
 
@@ -74,15 +74,43 @@ export function assessClaim({ bookings, assessments, spentMinorUnits = 0 }) {
     .filter((item) => item.route === route)
     .reduce((sum, item) => sum + item.amount.minorUnits, 0);
 
+  const gross = total("claimable");
+  // A claim is not the sum of what you lost. The excess comes off, and the
+  // policy limit caps it. Showing the gross number would be misleading.
+  const excess = policy ? Math.min(gross, policy.excess.minorUnits) : 0;
+  const limit = policy ? policy.perTripLimit.minorUnits : Infinity;
+  const net = Math.min(Math.max(0, gross - excess), limit);
+
   return {
     items,
     totals: {
-      claimable: sgd(total("claimable")),
+      claimable: sgd(gross),
       refund: sgd(total("refund")),
       atRisk: sgd(total("at-risk")),
     },
+    policy: policy && {
+      insurer: policy.insurer,
+      product: policy.product,
+      reference: policy.reference,
+      excess: policy.excess,
+      perTripLimit: policy.perTripLimit,
+      filingWindowDays: policy.filingWindowDays,
+      typicalSettlementDays: policy.typicalSettlementDays,
+      grossLoss: sgd(gross),
+      lessExcess: sgd(excess),
+      expectedPayout: sgd(net),
+      cappedByLimit: gross - excess > limit,
+    },
+    // Filing is days of paperwork, which is the point: the agent already fixed
+    // the trip in seconds. Preparing and filing the claim is the next step, not
+    // something we pretend to have done.
+    nextStep: policy
+      ? `Trip Rescue can assemble this claim for ${policy.insurer} with the cancellation notices and the on-chain receipt attached. `
+        + `You have ${policy.filingWindowDays} days to file, and they typically settle in about ${policy.typicalSettlementDays}. `
+        + "Automatic filing is not built yet."
+      : "No policy is linked to this trip, so this is booking-terms guidance only.",
     disclaimer:
-      "Guidance from your booking terms and what the disruption actually cost. "
+      "Guidance from your booking terms, your policy summary, and what the disruption actually cost. "
       + "It is not a policy decision, and your insurer has the final say.",
   };
 }

@@ -24,6 +24,7 @@ import TripCascade from "./TripCascade";
 import RecoveryPlans from "./RecoveryPlans";
 import PaymentFlow from "./PaymentFlow";
 import ClaimSummary from "./ClaimSummary";
+import TripChanges from "./TripChanges";
 import type { Booking, BookingAssessment, RecoveryPlan } from "./types";
 
 type View = "home" | "recovery";
@@ -50,6 +51,7 @@ export default function App() {
   const [authorised, setAuthorised] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [settled, setSettled] = useState(0);
+  const [boughtOfferId, setBoughtOfferId] = useState<string | undefined>(undefined);
 
   async function loadHome() {
     const data = await fetchTrips();
@@ -198,8 +200,15 @@ export default function App() {
             <PaymentFlow
               key={selectedPlan.id}
               planId={selectedPlan.id}
-              onComplete={() => setSettled((n) => n + 1)}
+              onComplete={(offerId) => {
+                setBoughtOfferId(offerId);
+                setSettled((n) => n + 1);
+              }}
             />
+          )}
+
+          {selectedPlan && settled > 0 && (
+            <TripChanges planId={selectedPlan.id} offerId={boughtOfferId} />
           )}
 
           {selectedPlan && <ClaimSummary refreshToken={settled} />}

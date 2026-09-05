@@ -831,3 +831,46 @@ button.ghost:hover:not(:disabled) { background: var(--surface); border-color: va
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* What changed -------------------------------------------------------- */
+
+.changes { list-style: none; margin: 0; padding: 0; display: grid; gap: 18px; }
+
+.change { display: grid; gap: 10px; justify-items: start; }
+.change + .change { padding-top: 18px; border-top: 1px solid var(--line); }
+
+.swap { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+
+.swap-side { display: grid; gap: 3px; font-size: 13px; color: var(--muted); }
+.swap-side strong { font-size: 15px; font-weight: 500; color: var(--text); }
+.swap-side.was strong { color: var(--muted); text-decoration: line-through; }
+.swap-side.was { opacity: 0.75; }
+.swap-side span { font-family: var(--mono); font-size: 12px; }
+.swap-side.single strong { text-decoration: none; }
+
+.swap-arrow { color: var(--faint); font-size: 18px; }
+
+.change-note { margin: 0; font-size: 13.5px; color: var(--muted); line-height: 1.55; max-width: 74ch; }
+
+/* Policy maths -------------------------------------------------------- */
+
+.policy {
+  margin-top: 20px;
+  padding: 16px 18px;
+  background: var(--surface);
+  border-radius: var(--r-md);
+}
+.policy-head { display: flex; align-items: baseline; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+.policy-ref { font: 12px/1.5 var(--mono); color: var(--muted); }
+.policy-maths {
+  display: flex;
+  gap: 14px;
+  flex-wrap: wrap;
+  align-items: baseline;
+  margin-top: 10px;
+  font: 14px/1.5 var(--sans);
+  color: var(--muted);
+}
+.policy-payout { font-weight: 500; color: var(--good); font-size: 16px; }
+
+.claim-next { margin: 16px 0 0; font-size: 13.5px; color: var(--muted); line-height: 1.6; max-width: 76ch; }

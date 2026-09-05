@@ -342,10 +342,45 @@ export interface ClaimItem {
 export interface ClaimSummary {
   items: ClaimItem[];
   totals: { claimable: Money; refund: Money; atRisk: Money };
+  policy: PolicySummary | null;
+  nextStep: string;
   disclaimer: string;
 }
 
 export async function fetchClaim(): Promise<ClaimSummary> {
   const { data } = await call<never>("/api/recovery/claim");
   return data as never;
+}
+
+export interface ChangeSide { title: string; provider: string; time: string; cost: Money }
+export interface TripChange {
+  kind: "replaced" | "kept" | "released" | "notified";
+  bookingId: string | null;
+  before: ChangeSide | null;
+  after: ChangeSide | null;
+  note: string;
+}
+export interface ChangeSummary {
+  changes: TripChange[];
+  cost: { estimated: Money; actual: Money; differenceLabel: string };
+}
+
+export async function fetchChanges(planId: string, offerId?: string): Promise<ChangeSummary> {
+  const q = new URLSearchParams({ planId, ...(offerId ? { offerId } : {}) });
+  const { data } = await call<never>(`/api/recovery/changes?${q}`);
+  return data as never;
+}
+
+export interface PolicySummary {
+  insurer: string;
+  product: string;
+  reference: string;
+  excess: Money;
+  perTripLimit: Money;
+  filingWindowDays: number;
+  typicalSettlementDays: number;
+  grossLoss: Money;
+  lessExcess: Money;
+  expectedPayout: Money;
+  cappedByLimit: boolean;
 }

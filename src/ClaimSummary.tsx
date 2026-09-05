@@ -53,6 +53,26 @@ export default function ClaimSummary({ refreshToken = 0 }: { refreshToken?: numb
         </div>
       </div>
 
+      {claim.policy && (
+        <div className="policy">
+          <div className="policy-head">
+            <span className="label">Against your cover</span>
+            <span className="policy-ref">
+              {claim.policy.insurer} {claim.policy.product} · {claim.policy.reference}
+            </span>
+          </div>
+          <div className="policy-maths">
+            <span>Gross loss {formatSgd(claim.policy.grossLoss.minorUnits)}</span>
+            <span>− excess {formatSgd(claim.policy.lessExcess.minorUnits)}</span>
+            <span className="policy-payout">
+              = about {formatSgd(claim.policy.expectedPayout.minorUnits)} expected
+            </span>
+          </div>
+        </div>
+      )}
+
+      <p className="claim-next">{claim.nextStep}</p>
+
       {open && (
         <ul className="claim-items">
           {claim.items.map((item) => (
