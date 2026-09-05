@@ -63,8 +63,12 @@ function Node({
           </button>
         )}
 
-        {expanded && meta}
-        {expanded && analysed && assessment && <p className="node-reason">{assessment.explanation}</p>}
+        {expanded && (
+          <div className="node-detail">
+            {meta}
+            {analysed && assessment && <p className="node-reason">{assessment.explanation}</p>}
+          </div>
+        )}
       </div>
     </li>
   );

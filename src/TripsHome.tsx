@@ -80,7 +80,7 @@ function TripCard({
       <ExposureBar exposure={alert ? trip.exposure : { broken: 0, atRisk: 0, safe: trip.bookingCount }} />
 
       {expanded && (
-        <>
+        <div className="trip-detail">
           <div className="trip-facts">
             <span>{trip.bookingCount} bookings</span>
             <span>{trip.providerCount} providers</span>
@@ -91,7 +91,7 @@ function TripCard({
           </div>
 
           {trip.purpose && <p className="trip-purpose">{trip.purpose}</p>}
-        </>
+        </div>
       )}
 
       {alert && (
